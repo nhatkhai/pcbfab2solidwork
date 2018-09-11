@@ -8,30 +8,33 @@ Attribute VB_Name = "Gerber_To_3D"
 Option Explicit
 
 Public swApp As ISldWorks
+
+Public Const InToMeter = 25.4 / 1000#  ' (mm/in)
 Public Const InchToSW As Double = 25.4 / 1000# ' SolidWork use meter unit (m/in)
 
-Public DrillScale As Double     ' =25.4/1000 Convert to meter - (m/in)
 Public GerbScale As Double      ' =25.4      Convert to meter - (m/in)
+Public DrillScale As Double     ' =25.4/1000 Convert to meter - (m/in)
 
 Public POSScale As Double       ' =25.4/1000 Convert to meter - (m/in)
 Public AngScale As Double       ' =-1        Convert to angle
+
+Public VRMLScale As Double      ' =25.4/1000 Convert to meter - (m/in)
+Public BOMScale As Double       ' =25.4/1000 Convert to meter - (m/in)
+
+Public PCB_Thickness As Double  ' =0.063 (inches)
+
 Public POS_RefColIdx As Integer   '= 0
 Public POS_PosXColIdx As Integer  '= 4
 Public POS_PosYColIdx As Integer  '= 5
 Public POS_RotColIdx As Integer   '= 6
 Public POS_SideColIdx As Integer  '= 7
   
-Public VRMLScale As Double      ' =25.4/1000 Convert to meter - (m/in)
-Public BOMScale As Double       ' =25.4/1000 Convert to meter - (m/in)
 Public BOM_RefColIdx        As Integer '= 2
 Public BOM_ScaleColIdx      As Integer '= 9
 Public BOM_OfsColIdx        As Integer '= 12
 Public BOM_RotColIdx        As Integer '= 15
 Public BOM_ModleFileColIdx  As Integer '= 18
 
-Public PCB_Thickness As Double  ' =0.063 (inches)
-
-Const InToMeter = 25.4 / 1000#  ' (mm/in)
 
 Const silkTopLayer = "TOP"
 Const silkBottomLayer = "BOTTOM"

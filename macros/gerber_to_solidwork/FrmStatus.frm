@@ -1,7 +1,7 @@
 VERSION 5.00
 Begin {C62A69F0-16DC-11CE-9E98-00AA00574A4F} FrmStatus 
    Caption         =   "Status"
-   ClientHeight    =   4704
+   ClientHeight    =   4710
    ClientLeft      =   45
    ClientTop       =   330
    ClientWidth     =   7455
@@ -48,14 +48,14 @@ Public Sub PushTODO(s As String)
   Me.Repaint
 End Sub
 
-Public Sub PopTODO()
+Public Sub PopTODO(Optional err As String = "")
   Dim s As String
   
   If (todoCount > 0) Then
     todoCount = todoCount - 1
     s = Me.TODOList.List(todoCount)
     Me.TODOList.RemoveItem todoCount
-    Me.DONEList.AddItem s, 0
+    Me.DONEList.AddItem err + s, 0
   End If
 
   If (todoCount > 0) Then
