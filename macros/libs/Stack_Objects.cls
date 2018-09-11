@@ -16,7 +16,7 @@ Attribute VB_Exposed = False
 Option Explicit
 
 Private lngTop As Long
-Private myStack()
+Private myStack() As Object
 
 ' to manage increase of array
 Private k As Integer
@@ -39,20 +39,20 @@ Function Push(ByVal value)
   lngTop = lngTop + 1
 End Function
 
-Function Pop()
+Function Pop() As Variant
   If Not IsEmpty() Then
     lngTop = lngTop - 1
     Pop = myStack(lngTop)
   End If
 End Function
 
-Function Top()
+Function Top() As Variant
   If Not IsEmpty() Then
     Top = myStack(lngTop - 1)
   End If
 End Function
 
-Function GetArray()
+Function GetArray() As Variant
   ReDim Preserve myStack(0 To lngTop - 1)
   k = (lngTop - 1) / MAXARRAY
   GetArray = myStack
@@ -67,4 +67,5 @@ End Function
 Function GetValue(ByVal idx As Long)
   GetValue = myStack(idx)
 End Function
+
 

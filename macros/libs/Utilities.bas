@@ -443,4 +443,12 @@ Function REMOVE_TEST()
   r = GerberCMD(ss, a, "LZ")
 End Function
 
+Function setTextWidth(ByVal s As String, w As Integer) As String
+  If Len(s) >= w Then
+    setTextWidth = s
+  Else
+    setTextWidth = s + Left("                             ", w - Len(s))
+  End If
+End Function
+
 
