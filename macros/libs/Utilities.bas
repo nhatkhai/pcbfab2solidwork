@@ -171,7 +171,6 @@ Function ReadSpaceSepVecRow(ByVal row As String) As Variant
   ReadSpaceSepVecRow = cols
 End Function
 
-
 Function Read3DBOMFile(FileName As String) As Object
   Dim dict
   Dim s, mypath, ref
@@ -414,6 +413,14 @@ Function SingleQuadrantArcCenter(ByVal x1 As Double, ByVal y1 As Double, _
   If i = 2 Or i = 3 Then dcy = -dcy
 End Function
 
+Function setTextWidth(ByVal s As String, w As Integer) As String
+  If Len(s) >= w Then
+    setTextWidth = s
+  Else
+    setTextWidth = s + Left("                             ", w - Len(s))
+  End If
+End Function
+
 Function REMOVE_TEST()
   'Dim d
   'Set d = Read3DBOMFile("C:\Documents and Settings\knguyen\Desktop\Projects\IGOR\igor1_prototype\pcb\Gerber_MAIN_PCB\Rev3\REMOVE_BOM.csv")
@@ -442,13 +449,4 @@ Function REMOVE_TEST()
   r = GerberCMD(ss, a, "TZ")
   r = GerberCMD(ss, a, "LZ")
 End Function
-
-Function setTextWidth(ByVal s As String, w As Integer) As String
-  If Len(s) >= w Then
-    setTextWidth = s
-  Else
-    setTextWidth = s + Left("                             ", w - Len(s))
-  End If
-End Function
-
 

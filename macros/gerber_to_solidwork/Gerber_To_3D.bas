@@ -62,7 +62,9 @@ Const MODEL_ANGY = 7 ' Rot Y
 Const MODEL_ANGZ = 8 ' Rot Z
 Const MODEL_FILE = 9 ' 3D Model files (STEP, SLDPRT or VMRL)
 
-Sub GenerateSilk(Part As IPartDoc, SilkFileName As String _
+
+Sub GenerateSilk(Part As IPartDoc _
+  , SilkFileName As String _
   , Z As Double _
   , Optional SketchName As String = "")
  
@@ -261,10 +263,11 @@ Sub GenerateSilk(Part As IPartDoc, SilkFileName As String _
 End Sub
 
 
-
-Sub GeneratePCB(Part As IPartDoc, FileName As String, OutLineFileName As String, _
- Optional absolute_mode As Boolean = True, _
- Optional minHole As Double = 0.01)
+Sub GeneratePCB(Part As IPartDoc _
+  , DrillFileName As String _
+  , OutLineFileName As String _
+  , Optional absolute_mode As Boolean = True _
+  , Optional minHole As Double = 0.01)
  
   Dim inFile As Integer
   Dim line As Long
@@ -323,7 +326,7 @@ Sub GeneratePCB(Part As IPartDoc, FileName As String, OutLineFileName As String,
   Else
     FrmStatus.AppendTODO "Create estimated board outline"
   End If
-  FrmStatus.AppendTODO "Read Drill File " + FileName
+  FrmStatus.AppendTODO "Read Drill File " + DrillFileName
   
   ' Read NC Drill file, and sketch drill holes
   line = 0
@@ -337,7 +340,7 @@ Sub GeneratePCB(Part As IPartDoc, FileName As String, OutLineFileName As String,
   Set prevSketch = Nothing
   
   inFile = FreeFile
-  Open FileName For Input As #inFile
+  Open DrillFileName For Input As #inFile
   Do While Not EOF(inFile)
     RelaxForGUI last_time, 0
     Line Input #inFile, s
@@ -649,10 +652,14 @@ DrillDone:
   
   mySketch.DisplayWhenAdded = True
   mySketch.AddToDB = False
-  Part.Extension.AddComment FileName
+  Part.Extension.AddComment DrillFileName
 End Sub
 
-Sub SketchRecSilk(mySketch As SketchManager, silks As Stack_Dbl, z1 As Double)
+
+Sub SketchRecSilk(mySketch As SketchManager _
+  , silks As Stack_Dbl _
+  , z1 As Double)
+
   Dim x1 As Double, y1 As Double
   Dim x2 As Double, y2 As Double
   Dim x3 As Double, y3 As Double
@@ -700,7 +707,9 @@ Sub SketchRecSilk(mySketch As SketchManager, silks As Stack_Dbl, z1 As Double)
   Loop
 End Sub
 
-Sub SketchDSSilk(mySketch As SketchManager, silks As Stack_Dbl, z1 As Double, _
+
+Sub SketchDSSilk(mySketch As SketchManager _
+  , silks As Stack_Dbl, z1 As Double, _
   Optional myfeature As IFeatureManager = Nothing, _
   Optional Name As String = "")
   
@@ -772,7 +781,11 @@ Sub SketchDSSilk(mySketch As SketchManager, silks As Stack_Dbl, z1 As Double, _
   Loop
 End Sub
 
-Sub SketchDCSilk(mySketch As SketchManager, silkDC As Stack_Dbl, z1 As Double)
+
+Sub SketchDCSilk(mySketch As SketchManager _
+  , silkDC As Stack_Dbl _
+  , z1 As Double)
+
   Dim x1 As Double, y1 As Double
   Dim x2 As Double, y2 As Double
   Dim r1 As Double
@@ -806,7 +819,12 @@ Sub SketchDCSilk(mySketch As SketchManager, silkDC As Stack_Dbl, z1 As Double)
 
 End Sub
 
-Sub SketchText(Part As IPartDoc, text As Stack_String, text_info As Stack_Dbl, z1 As Double)
+
+Sub SketchText(Part As IPartDoc _
+  , text As Stack_String _
+  , text_info As Stack_Dbl _
+  , z1 As Double)
+
   Dim tc, ts, flip
   Dim last_time As Long
     
@@ -874,10 +892,13 @@ Sub SketchText(Part As IPartDoc, text As Stack_String, text_info As Stack_Dbl, z
 
 End Sub
 
-Sub GenerateVMRL(Part As IPartDoc, FileName As String, _
-  Scale_x, Scale_y, Scale_z, _
-  Optional genMinMaxBox As Boolean = True, _
-  Optional genWireFrame As Boolean = False)
+
+Sub GenerateVMRL(Part As IPartDoc _
+  , FileName As String _
+  , Scale_x, Scale_y, Scale_z _
+  , Optional genMinMaxBox As Boolean = True _
+  , Optional genWireFrame As Boolean = False)
+
   Dim inFile As Integer
   Dim st As Stack_String
   Dim points As Stack_Dbl
@@ -1058,12 +1079,15 @@ DONE_LABEL:
   Part.Extension.AddComment FileName
 End Sub
 
-Sub GeneratePCBAssembly(Part As IAssemblyDoc, boardFilename As String, _
-  PosFileName As String, BOMFileName As String, _
-  Optional overwriteGeneratedVRML = False, _
-  Optional genMinMaxBox As Boolean = True, _
-  Optional genWireFrame As Boolean = False, _
-  Optional RenameComponents As Boolean = True)
+
+Sub GeneratePCBAssembly(Part As IAssemblyDoc _
+  , boardFilename As String _
+  , PosFileName As String _
+  , BOMFileName As String, _
+  , Optional overwriteGeneratedVRML = False _
+  , Optional genMinMaxBox As Boolean = True _
+  , Optional genWireFrame As Boolean = False _
+  , Optional RenameComponents As Boolean = True)
   
   Dim maxCol
   maxCol = POS_SideColIdx
@@ -1424,6 +1448,7 @@ Sub GeneratePCBAssembly(Part As IAssemblyDoc, boardFilename As String, _
   compRef.Clear
   compVal.Clear
 End Sub
+
 
 Sub main()
   Set swApp = Application.SldWorks
