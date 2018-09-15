@@ -1,4 +1,4 @@
-Attribute VB_Name = "KiCad_to_SolidWork1"
+Attribute VB_Name = "KiCad_to_SolidWork"
 '
 '    PCBFab2Solidwork
 '    Copyright (C) 2018  NhatKhai L. Nguyen
