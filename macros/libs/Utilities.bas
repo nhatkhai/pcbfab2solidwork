@@ -236,15 +236,45 @@ Function Read3DBOMFile(FileName As String) As Object
   Set Read3DBOMFile = dict
 End Function
 
+'
+' Extract a number in strNum from offset of StartIdx in the string.
+'
+' The number will be extracted base on Gerber FS format. It then apply the
+' UnitScale to convert into the usable Unit.
+'
+' @example:
+'   * GerberNumber("%ADD10C", StartIdx:Idx) --> 12, and Idx change from 5 to 7
+'   * GerberNumber( "X123Y-100D02*", 25.4
+'                 , 1e-4, 6  <-- 2.4 FS Format yeild 1e-4, 6
+'                                4.6 FS Format yeild 1e-6, 10
+'                                2.5 FS Format yeild 1e-6, 7 
+'                 , True
+'                 , Idx) -> 0.0123*25.4, and Idx change from 2 to 5
+' 
+' @param strNum [in] a string containt gerber number that need to be
+'           extracted
+' @param UnitScale [in] a convertion factor for convert extracted number
+'           into usable unit. Default is 1
+' @param CorrectScale [in] Specify adjust scale. This value is 
+'           1/10^(#DECIMAL_DIGIT). Where #DECIMAL_DIGIT is
+'           specified in Gerber FS command. Default is 1
+' @param NumDigit [in] Specify maximum total number of digit can be.
+'           This value is #DECIMAL_DIGIT + #INTEGER_DIGIT. There are
+'           specified in Gerber FS command. Default is 6
+' @param Leading [in] Specify where Gerber number in leading zeros (True) or
+'           trailling zeros (False) format. Default is True
+' @param StartIdx [in/out] Specify starting offset in strNum for extract
+'           the number. StartIdx will be advanced to the position after the
+'           extracted number in the string.
+'
+' @return The extract gerber number in specified unit base on UnitScale
+'
 Function GerberNumber(ByVal strNum As String _
   , Optional ByVal UnitScale As Double = 1 _
-  , Optional ByVal CorrectScale As Double = 1 / 1000000 _
-  , Optional ByVal DecimalFormat As Integer = 6 _
-  , Optional ByVal Leading As Boolean = False _
+  , Optional ByVal CorrectScale As Double = 1 _
+  , Optional ByVal NumDigit As Integer = 6 _
+  , Optional ByVal Leading As Boolean = True _
   , Optional ByRef StartIdx = 1) As Double
-' DecimalFormat = 4 for 2.4 Format
-'                 6 for 2.6 Format
-'                 7 for 3.7 format
   Dim num As Double
   Dim i As Integer
   
@@ -262,7 +292,8 @@ Function GerberNumber(ByVal strNum As String _
     num = 0
   Else
     If Leading = False Then
-      num = CDbl(Left(Mid(strNum, StartIdx, i - StartIdx) + String(DecimalFormat, "0"), DecimalFormat))
+      num = CDbl(Left(Mid(strNum, StartIdx, i - StartIdx) _
+                      + String(NumDigit, "0"), NumDigit))
     Else
       num = CDbl(Mid(strNum, StartIdx, i - StartIdx))
     End If
@@ -272,11 +303,9 @@ Function GerberNumber(ByVal strNum As String _
   
   If InStr(strNum, ".") = 0 Then
     num = num * CorrectScale
-  Else
-    num = num * UnitScale
   End If
-  
-  GerberNumber = num
+
+  GerberNumber = num * UnitScale
   
 End Function
 

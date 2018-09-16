@@ -12,8 +12,8 @@ Public swApp As ISldWorks
 Public Const InToMeter = 25.4 / 1000#  ' (mm/in)
 Public Const InchToSW As Double = 25.4 / 1000# ' SolidWork use meter unit (m/in)
 
-Public GerbScale As Double      ' =25.4      Convert to meter - (m/in)
-Public DrillScale As Double     ' =25.4/1000 Convert to meter - (m/in)
+Public GerbScale As Double      ' =1
+Public DrillScale As Double     ' =1
 
 Public POSScale As Double       ' =25.4/1000 Convert to meter - (m/in)
 Public AngScale As Double       ' =-1        Convert to angle
@@ -62,278 +62,89 @@ Const MODEL_ANGY = 7 ' Rot Y
 Const MODEL_ANGZ = 8 ' Rot Z
 Const MODEL_FILE = 9 ' 3D Model files (STEP, SLDPRT or VMRL)
 
+'
+' Create a new sketch, and bring Solidwork into Edit mode for the sketch
+'
+' @param Part [in] Solidwork IPardDoc
+' @param SketchName [in] Specify the sktech name. This name should be
+'        uniqune. Otherwise unexpected behavior from Solidworks may cause
+'        unexpected outcome
+'
+Sub EditNewSketch(Part As IPartDoc _
+  , SketchName As String)
 
-Sub GenerateSilk(Part As IPartDoc _
-  , SilkFileName As String _
-  , Z As Double _
-  , Optional SketchName As String = "")
- 
-  Dim inFile As Integer
-  Dim line As Long
-  Dim idx As Integer
-  
-  Dim s As String, a() As String, ss As String
-  Dim x As Double, y As Double
-  Dim x1 As Double, y1 As Double
-  Dim x2 As Double, y2 As Double
-  Dim last_time As Long
-  Dim mySketch As SketchManager
-  Dim myfeature As FeatureManager
-  Dim mat
-  
-  Dim DrillToSW As Double ' faction_number_unit/SW.unit
-  Dim GerberNumberToSW As Double ' gerber_number_unit/SW.unit
-  Dim Leading As Integer, num0 As Integer
-  Dim graphic_mode As Integer
-  Dim quadrant_mode As Integer
-  Dim absolute_mode As Boolean
-  Dim dcode As Integer
-  Dim radius(100) As Double
-  Dim r As Double
-  Dim prevSketch
-  
   Part.ClearSelection2 True
   Part.SelectionManager.EnableContourSelection = True
-  Part.Extension.SelectByID2 "Front Plane", "PLANE", 0, 0, 0, False, 0, Nothing, 0
+  Part.Extension.SelectByID2 "Front Plane", "PLANE", 0, 0, 0, False, 0 _
+                            , Nothing, 0
   Part.SetUnits swINCHES, swDECIMAL, 8, 3, False
   
-  Set myfeature = Part.FeatureManager
-  Set mySketch = Part.SketchManager
-  mySketch.AddToDB = True
-  mySketch.DisplayWhenAdded = False
-  mySketch.Insert3DSketch True
-  If SketchName = "" Then
-    mySketch.ActiveSketch.Name = "Silk_" + CStr(Z / InchToSW * 1000) + "mil"
-  Else
-    mySketch.ActiveSketch.Name = SketchName
-  End If
-  Part.SetLineColor (16777215)
-  
-  FrmStatus.AppendTODO "Create Silkscree from " + SilkFileName
- 
-  ' Read Silkscree gerber file, and sketch silkscreen
-  DrillToSW = InchToSW          ' SW/in
-  GerberNumberToSW = GerbScale  ' SW/unit
-  Leading = False
-  absolute_mode = True
-  graphic_mode = 1
-  dcode = 2
-  x = 0
-  y = 0
-  
-  line = 0
-  inFile = FreeFile
-  Open SilkFileName For Input As #inFile
-  Do While Not EOF(inFile)
-    RelaxForGUI last_time, 0
-    Line Input #inFile, s
-    s = Trim(s)
-    idx = 1
-    line = line + 1
-    
-    Select Case Left(s, 1)
-      Case "%"
-        Select Case Left(s, 3)
-          Case "%MO" ' Unit setting
-            Select Case Mid(s, 4, 3)
-              Case "MM*"  ' Using mm unit
-                DrillToSW = InchToSW / 25.4          ' SW/in
-                GerberNumberToSW = GerbScale / 25.4  ' SW/unit
-              Case "IN*" ' Using Inch unit
-                DrillToSW = InchToSW          ' SW/in
-                GerberNumberToSW = GerbScale  ' SW/unit
-              End Select
-            
-          Case "%FS"
-            If Mid(s, 4, 1) = "L" Then
-              Leading = True
-            Else
-              Leading = False
-            End If
-              
-            If Mid(s, 5, 1) = "A" Then
-              absolute_mode = True
-            Else
-              absolute_mode = False
-            End If
-              
-            GerberNumberToSW = DrillToSW / (10 ^ CInt(Mid(s, 8, 1)))
-        End Select
-      
-      Case "X", "Y", "G"
-      
-        If Mid(s, idx, 1) = "G" Then
-          idx = idx + 1
-          num0 = Utilities.GerberNumber(s, 1, 1, , True, idx)
-          If num0 <= 3 Then
-            ' G01, G02, G03
-            graphic_mode = num0
-          ElseIf num0 < 74 Then
-            num0 = 4 ' Ignore the rest
-          ElseIf num0 <= 75 Then
-            ' G74, G75
-            quadrant_mode = num0
-            num0 = 4  ' Ignore the rest
-          Else
-            num0 = 4  ' Ignore the rest
-          End If
-        Else
-          num0 = 0
-        End If
-        
-        If num0 <> 4 And Mid(s, idx, 1) <> "*" Then
-          'Get X
-          If Mid(s, idx, 1) = "X" Then
-            idx = idx + 1
-            x1 = Utilities.GerberNumber(s, DrillToSW, GerberNumberToSW, , Leading, idx)
-            If Not absolute_mode Then
-              x1 = x1 + x
-            End If
-          Else
-            x1 = x
-          End If
-          
-          ' Get Y
-          If Mid(s, idx, 1) = "Y" Then
-            idx = idx + 1
-            y1 = Utilities.GerberNumber(s, DrillToSW, GerberNumberToSW, , Leading, idx)
-            If Not absolute_mode Then
-              y1 = y1 + y
-            End If
-          Else
-            y1 = y
-          End If
-          
-          'Get Center X
-          If Mid(s, idx, 1) = "I" Then
-            idx = idx + 1
-            x2 = Utilities.GerberNumber(s, DrillToSW, GerberNumberToSW, , Leading, idx)
-          Else
-            x2 = 0
-          End If
-          
-          ' Get Center Y
-          If Mid(s, idx, 1) = "J" Then
-            idx = idx + 1
-            y2 = Utilities.GerberNumber(s, DrillToSW, GerberNumberToSW, , Leading, idx)
-          Else
-            y2 = 0
-          End If
-                      
-          ' Get D-Code
-          If Mid(s, idx, 1) = "D" Then
-            idx = idx + 1
-            dcode = Utilities.GerberNumber(s, 1, 1, , True, idx)
-          End If
-          
-          ' D-Code
-          If dcode = 1 Then
-            Select Case graphic_mode
-              Case 1
-                Set prevSketch = mySketch.CreateLine(x, y, Z, x1, y1, Z)
-              Case 2, 3 ' Arc Clockwise/CounterClockwise
-                Select Case quadrant_mode
-                  Case 75 ' Multi Quadrant
-                    Set prevSketch = mySketch.CreateArc(x + x2, y + y2, Z, _
-                                       x, y, Z, _
-                                       x1, y1, Z, _
-                                       (graphic_mode * 2 - 5))
-                  Case 74
-                    SingleQuadrantArcCenter x, y, x2, y2, x1, y1, (graphic_mode = 2)
-                    Set prevSketch = mySketch.CreateArc(x + x2, y + y2, Z, _
-                                       x, y, Z, _
-                                       x1, y1, Z, _
-                                       (graphic_mode * 2 - 5))
-                End Select
-            End Select
-          End If
-          
-          x = x1
-          y = y1
-        End If
-    End Select
-  Loop
-  Close #inFile
-  
-  FrmStatus.PopTODO
-  mySketch.InsertSketch True
-  mySketch.DisplayWhenAdded = True
-  mySketch.AddToDB = False
-  Part.Extension.AddComment SilkFileName
+  Part.SketchManager.AddToDB = True
+  Part.SketchManager.DisplayWhenAdded = False
+  Part.SketchManager.Insert3DSketch True
+  Part.SketchManager.ActiveSketch.Name = SketchName
 End Sub
 
 
-Sub GeneratePCB(Part As IPartDoc _
+' This function generate a sketch from a NC Drill file.
+'
+' Drill format specification can be found at:
+' https://web.archive.org/web/20071030075236/http://www.excellon.com/manuals/program.htm
+'
+' @param absolute_mode [in] set initial assume of Drill file mode. True for
+'        absolute, False for relative mode.
+'
+' @param minHole [in] Only holes with size greater than or equal with
+'        this vaule will be generate into sketch
+'
+' @return A Rect object that containt a minimun board size that would
+'        contains all the drill holes
+'
+Function GenerateSketchFromDrill(Part As IPartDoc _
   , DrillFileName As String _
-  , OutLineFileName As String _
+  , Optional Z As Double = 0 _
   , Optional absolute_mode As Boolean = True _
-  , Optional minHole As Double = 0.01)
+  , Optional minHole As Double = 0.01) As Rect
  
-  Dim inFile As Integer
-  Dim line As Long
-  Dim idx As Integer
+  Dim inFile  As Integer ' File handle for access Gerber File
+  Dim line    As Long    ' Tracking current line in Gerber file
+  Dim idx     As Integer ' Tracking current line offset in Gerber file
   
-  Dim s As String, a() As String, ss As String
+  Dim s As String, ss As String
   Dim x As Double, y As Double
   Dim x1 As Double, y1 As Double
-  Dim x2 As Double, y2 As Double
   Dim last_time As Long
-  Dim mySketch As SketchManager
-  Dim myfeature As FeatureManager
-  Dim mat
-  
-  Dim boardMinX As Double
-  Dim boardMinY As Double
-  Dim boardMaxX As Double
-  Dim boardMaxY As Double
-  Dim brdSp As Double
   
   Dim DrillToSW As Double ' faction_number_unit/SW.unit
-  Dim GerberNumberToSW As Double ' gerber_number_unit/SW.unit
+  Dim CorrectScale As Double ' gerber_number_unit/SW.unit
   Dim Leading As Integer, num0 As Integer
   Dim graphic_mode As Integer
-  Dim quadrant_mode As Integer
-  Dim dcode As Integer
   Dim drillTool As Integer
   Dim radius(100) As Double
   Dim r As Double
+
   Dim prevSketch
   
-  Part.ClearSelection2 True
-  Part.SelectionManager.EnableContourSelection = True
-  Part.Extension.SelectByID2 "Front Plane", "PLANE", 0, 0, 0, False, 0, Nothing, 0
-  Part.SetUnits swINCHES, swDECIMAL, 8, 3, False
+  Dim mySketchMgr As SketchManager
+  Set mySketchMgr = Part.SketchManager
   
-  Set myfeature = Part.FeatureManager
-  Set mySketch = Part.SketchManager
-  mySketch.AddToDB = True
-  mySketch.DisplayWhenAdded = False
-  mySketch.InsertSketch True
-  mySketch.ActiveSketch.Name = "Sketch_PCBBoard"
-  
-  boardMinX = 10000000000000#
-  boardMinY = 10000000000000#
-  boardMaxX = -10000000000000#
-  boardMaxY = -10000000000000#
+  ' Initialize variables for tracking minimum size of the board
+  Dim MinBrd As Rect
+  Set MinBrd = New Rect
+  MinBrd.MinX = 1E+20
+  MinBrd.MinY = 1E+20
+  MinBrd.MaxX = -1E+20
+  MinBrd.MaxY = -1E+20
   drillTool = 0
   
   minHole = minHole * InToMeter
-  brdSp = 0.1 * InToMeter
-  
-  FrmStatus.AppendTODO "Create 3D PCB Part"
-  If OutLineFileName <> "" Then
-    FrmStatus.AppendTODO "Read Board outline File " + OutLineFileName
-  Else
-    FrmStatus.AppendTODO "Create estimated board outline"
-  End If
-  FrmStatus.AppendTODO "Read Drill File " + DrillFileName
   
   ' Read NC Drill file, and sketch drill holes
   line = 0
   x1 = 0
   y1 = 0
   DrillToSW = InchToSW          ' SW/in
-  GerberNumberToSW = DrillScale ' SW/unit
+  CorrectScale = DrillScale ' SW/unit
   Leading = False
   graphic_mode = 5 ' Drill Mode
   r = 0
@@ -342,7 +153,7 @@ Sub GeneratePCB(Part As IPartDoc _
   inFile = FreeFile
   Open DrillFileName For Input As #inFile
   Do While Not EOF(inFile)
-    RelaxForGUI last_time, 0
+    Utilities.RelaxForGUI last_time, 0
     Line Input #inFile, s
     s = Trim(s)
     idx = 1
@@ -352,32 +163,29 @@ Sub GeneratePCB(Part As IPartDoc _
       ss = Utilities.GerberCMD(s, idx)
       Select Case ss
         Case "M"
-          Select Case Utilities.GerberNumber(s, 1, 1, , True, idx)
+          Select Case Utilities.GerberNumber(s, StartIdx:=idx)
             Case 72 ' English Mode (inch)
               DrillToSW = InchToSW           ' SW/in
-              GerberNumberToSW = DrillScale  ' SW/unit
             Case 71 ' METRIC Mode (mm)
               DrillToSW = InchToSW / 25.4            ' SW/mm
-              GerberNumberToSW = DrillScale / 25.4 ' SW/unit
             Case Else ' Ignore remain, read next line
               Exit Do
           End Select
         
-        Case "METRIC" ' METRIC Mode (mm)
-          DrillToSW = InchToSW / 25.4            ' SW/mm
-          GerberNumberToSW = DrillScale / 25.4 ' SW/unit
-          
         Case "INCH" ' English Mode (inch)
           DrillToSW = InchToSW           ' SW/in
-          GerberNumberToSW = DrillScale  ' SW/unit
+          
+        Case "METRIC" ' METRIC Mode (mm)
+          DrillToSW = InchToSW / 25.4            ' SW/mm
           
         Case "TZ"
           Leading = True
           
         Case "G"
-          num0 = Utilities.GerberNumber(s, 1, 1, , True, idx)
+          num0 = Utilities.GerberNumber(s, StartIdx:=idx)
           Select Case num0
-            Case 1 To 5 ' Linear, Circular CW, Circular CCW, Variable Dwell, Drill Mode
+            ' Linear, Circular CW, Circular CCW, Variable Dwell, Drill Mode
+            Case 1 To 5
               graphic_mode = num0
             Case 85 ' Slot Mode
               If graphic_mode = 5 Then
@@ -396,19 +204,20 @@ Sub GeneratePCB(Part As IPartDoc _
           End Select
           
         Case "T"
-          drillTool = Utilities.GerberNumber(Left(s, idx + 1), 1, 1, , True, idx)
-          Utilities.GerberNumber Left(s, idx + 1), 1, 1, , True, idx
+          drillTool = Utilities.GerberNumber(Left(s, idx + 1), StartIdx:=idx)
           r = radius(drillTool)
           
         Case "C"
-          r = Utilities.GerberNumber(s, DrillToSW, GerberNumberToSW, , True, idx) / 2#
+          r = Utilities.GerberNumber(s, DrillToSW, CorrectScale _
+                                    , , Leading, idx) / 2#
           radius(drillTool) = r
           
         Case "X", "Y"
           idx = idx - 1
           
           If Not IsNull(Utilities.GerberCMD(s, idx, "X")) Then
-            x = Utilities.GerberNumber(s, DrillToSW, GerberNumberToSW, , Leading, idx)
+            x = Utilities.GerberNumber(s, DrillToSW, CorrectScale _
+                                      , , Leading, idx)
             If Not absolute_mode Then
               x = x1 + x
             End If
@@ -417,7 +226,8 @@ Sub GeneratePCB(Part As IPartDoc _
           End If
           
           If Not IsNull(Utilities.GerberCMD(s, idx, "Y")) Then
-            y = Utilities.GerberNumber(s, DrillToSW, GerberNumberToSW, , Leading, idx)
+            y = Utilities.GerberNumber(s, DrillToSW, CorrectScale _
+                                      , , Leading, idx)
             If Not absolute_mode Then
               y = y1 + y
             End If
@@ -425,16 +235,16 @@ Sub GeneratePCB(Part As IPartDoc _
             y = y1
           End If
           
-          If boardMinX > x - brdSp - r Then boardMinX = x - brdSp - r
-          If boardMaxX < x + brdSp + r Then boardMaxX = x + brdSp + r
-          If boardMinY > y - brdSp - r Then boardMinY = y - brdSp - r
-          If boardMaxY < y + brdSp + r Then boardMaxY = y + brdSp + r
+          If MinBrd.MinX > x - r Then MinBrd.MinX = x - r
+          If MinBrd.MaxX < x + r Then MinBrd.MaxX = x + r
+          If MinBrd.MinY > y - r Then MinBrd.MinY = y - r
+          If MinBrd.MaxY < y + r Then MinBrd.MaxY = y + r
           If r >= minHole Then
             Select Case graphic_mode
               Case 5 ' Drill Mode
-                Set prevSketch = mySketch.CreateCircleByRadius(x, y, 0#, r)
+                Set prevSketch = mySketchMgr.CreateCircleByRadius(x, y, 0#, r)
               Case 85 ' Slot Mode
-                Set prevSketch = mySketch.CreateSketchSlot( _
+                Set prevSketch = mySketchMgr.CreateSketchSlot( _
                     swSketchSlotCreationType_e.swSketchSlotCreationType_line _
                   , swSketchSlotLengthType_e.swSketchSlotLengthType_CenterCenter _
                   , 2 * r _
@@ -468,160 +278,277 @@ DrillDone:
     
   Loop
   Close #inFile
+
+  Set GenerateSketchFromDrill = MinBrd
+
+End Function ' GenerateSketchFromDrill
+
+
+' This function generate a sketch from Gerber file.
+'
+' Geber format specification can be found at:
+' https://www.ucamco.com/en/file-formats/gerber/downloads
+'
+' @param GerberFile [in] Specify full path of a Gerber file
+'
+' @param Z [in] Specify the SolidWork Z-Plane coordinate for sketch
+'             will be generated on. Z default to zero, if omitted.
+'
+Sub GenerateSketchFromGerber(Part As IPartDoc _
+  , GerberFile As String _
+  , Optional Z As Double = 0#)
+ 
+  Dim inFile  As Integer ' File handle for access Gerber File
+  Dim line    As Long    ' Tracking current line in Gerber file
+  Dim idx     As Integer ' Tracking current line offset in Gerber file
+  
+  Dim s As String
+  Dim x As Double, y As Double
+  Dim x1 As Double, y1 As Double
+  Dim x2 As Double, y2 As Double
+  Dim last_time As Long
+  
+  Dim GerberToSW As Double ' faction_number_unit/SW.unit
+  Dim CorrectScale As Double ' Scale all number
+  Dim NumDigit As Double ' Total Digit format
+  
+  Dim Leading As Integer, num0 As Integer
+  Dim graphic_mode As Integer
+  Dim quadrant_mode As Integer
+  Dim absolute_mode As Boolean
+  Dim dcode As Integer
+
+  Dim prevSketch
+  
+  Dim mySketchMgr As SketchManager
+  Set mySketchMgr = Part.SketchManager
+    
+  ' Read Silkscreen Gerber file, and sketch silkscreen
+  GerberToSW = InchToSW          ' SW/in
+  CorrectScale = GerbScale  ' SW/unit
+  NumDigit = 6
+  Leading = False
+  absolute_mode = True
+  graphic_mode = 1
+  dcode = 2
+  x = 0
+  y = 0
+  
+  line = 0
+  inFile = FreeFile
+  Open GerberFile For Input As #inFile
+  Do While Not EOF(inFile)
+    Utilities.RelaxForGUI last_time, 0
+    Line Input #inFile, s
+    s = Trim(s)
+    idx = 1
+    line = line + 1
+    
+    Select Case Left(s, 1)
+      Case "%"
+        Select Case Left(s, 3)
+          Case "%MO" ' Unit setting
+            Select Case Mid(s, 4, 3)
+              Case "MM*"  ' Using mm unit
+                GerberToSW = InchToSW / 25.4          ' SW/in
+              Case "IN*" ' Using Inch unit
+                GerberToSW = InchToSW          ' SW/in
+              End Select
+            
+          Case "%FS"
+            If Mid(s, 4, 1) = "L" Then
+              Leading = True
+            Else
+              Leading = False
+            End If
+              
+            If Mid(s, 5, 1) = "A" Then
+              absolute_mode = True
+            Else
+              absolute_mode = False
+            End If
+              
+            CorrectScale = GerbScale / (10 ^ CInt(Mid(s, 8, 1)))
+            NumDigit = CInt(Mid(s, 7, 1)) + CInt(Mid(s, 8, 1))
+        End Select
+      
+      Case "X", "Y", "G"
+      
+        If Mid(s, idx, 1) = "G" Then
+          idx = idx + 1
+          num0 = Utilities.GerberNumber(s, StartIdx:=idx)
+          If num0 <= 3 Then
+            ' G01, G02, G03
+            graphic_mode = num0
+          ElseIf num0 < 74 Then
+            num0 = 4 ' Ignore the rest
+          ElseIf num0 <= 75 Then
+            ' G74, G75
+            quadrant_mode = num0
+            num0 = 4  ' Ignore the rest
+          Else
+            num0 = 4  ' Ignore the rest
+          End If
+        Else
+          num0 = 0
+        End If
+        
+        If num0 <> 4 And Mid(s, idx, 1) <> "*" Then
+          'Get X
+          If Mid(s, idx, 1) = "X" Then
+            idx = idx + 1
+            x1 = Utilities.GerberNumber(s, GerberToSW, CorrectScale _
+                                       , NumDigit, Leading, idx)
+            If Not absolute_mode Then
+              x1 = x1 + x
+            End If
+          Else
+            x1 = x
+          End If
+          
+          ' Get Y
+          If Mid(s, idx, 1) = "Y" Then
+            idx = idx + 1
+            y1 = Utilities.GerberNumber(s, GerberToSW, CorrectScale _
+                                       , NumDigit, Leading, idx)
+            If Not absolute_mode Then
+              y1 = y1 + y
+            End If
+          Else
+            y1 = y
+          End If
+          
+          'Get Center X
+          If Mid(s, idx, 1) = "I" Then
+            idx = idx + 1
+            x2 = Utilities.GerberNumber(s, GerberToSW, CorrectScale _
+                                       , NumDigit, Leading, idx)
+          Else
+            x2 = 0
+          End If
+          
+          ' Get Center Y
+          If Mid(s, idx, 1) = "J" Then
+            idx = idx + 1
+            y2 = Utilities.GerberNumber(s, GerberToSW, CorrectScale _
+                                       , NumDigit, Leading, idx)
+          Else
+            y2 = 0
+          End If
+                      
+          ' Get D-Code
+          If Mid(s, idx, 1) = "D" Then
+            idx = idx + 1
+            dcode = Utilities.GerberNumber(s, StartIdx:=idx)
+          End If
+          
+          ' D-Code
+          If dcode = 1 Then
+            Select Case graphic_mode
+              Case 1
+                Set prevSketch = mySketchMgr.CreateLine(x, y, Z, x1, y1, Z)
+              Case 2, 3 ' Arc Clockwise/CounterClockwise
+                Select Case quadrant_mode
+                  Case 75 ' Multi Quadrant
+                    Set prevSketch = mySketchMgr.CreateArc(x + x2, y + y2, Z, _
+                                       x, y, Z, _
+                                       x1, y1, Z, _
+                                       (graphic_mode * 2 - 5))
+                  Case 74
+                    SingleQuadrantArcCenter x, y, x2, y2, x1, y1 _
+                                          , (graphic_mode = 2)
+                    Set prevSketch = mySketchMgr.CreateArc(x + x2, y + y2, Z, _
+                                       x, y, Z, _
+                                       x1, y1, Z, _
+                                       (graphic_mode * 2 - 5))
+                End Select
+            End Select
+          End If
+          
+          x = x1
+          y = y1
+        End If
+    End Select
+  Loop
+  Close #inFile
+
+  mySketchMgr.DisplayWhenAdded = True
+  mySketchMgr.AddToDB = False
+End Sub ' GenerateSketchFromGerber
+
+
+'
+' Generate Sketch containt Silk drawing information at specify Z plan
+'
+' @param Part [in] SolidWork IPartDoc object
+' @param SilkFileName [in] Specify full path to drill file
+' @param Z [in] Specify were to place the sketch in Z-plane
+'
+Sub GenerateSilk(Part As IPartDoc _
+  , SilkFileName As String _
+  , Z As Double _
+  , SketchName As String)
+ 
+  FrmStatus.AppendTODO "Create Silkscreen from " + SilkFileName
+  EditNewSketch Part, SketchName
+  Part.SetLineColor (&HFFFFFF)
+  GenerateSketchFromGerber Part, SilkFileName, Z
+
+  ' Close current sketch
+  Part.SketchManager.InsertSketch True
+  FrmStatus.PopTODO
+End Sub ' GenerateSilk
+
+
+'
+' Generated a PCB part from Drill and Board Outline Gerber files.
+'
+' @param Part [in] Solidwork IPartDoc
+' @param DrillFileName [in] Full path to Drill file
+' @param GerberFile [in] Full path to the board outline Gerber file
+' @param minHole [in] Minimum drill hole size allow to be generate
+'
+Sub GeneratePCB(Part As IPartDoc _
+  , DrillFileName As String _
+  , OutLineFileName As String _
+  , Optional minHole As Double = 0.01)
+
+  Dim MinBrd As Rect
+  Dim brdSp As Double ' Minimum clearance from the drill hole
+ 
+  ' Show User the action plans (first Append last)
+  FrmStatus.AppendTODO "Create 3D PCB Part"
+  If OutLineFileName <> "" Then
+    FrmStatus.AppendTODO "Read Board outline File " + OutLineFileName
+  Else
+    FrmStatus.AppendTODO "Create estimated board outline"
+  End If
+  FrmStatus.AppendTODO "Read Drill File " + DrillFileName
+
+  EditNewSketch Part, "Drill"
+  Set MinBrd = GenerateSketchFromDrill(Part, DrillFileName)
+  Part.SketchManager.InsertSketch True
   FrmStatus.PopTODO
   
   ' Read Board Outline gerber file, and sketch board outline
+  EditNewSketch Part, "Board_Outline"
   If OutLineFileName <> "" Then
-    DrillToSW = InchToSW          ' SW/in
-    GerberNumberToSW = GerbScale  ' SW/unit
-    Leading = False
-    absolute_mode = True
-    graphic_mode = 1
-    dcode = 2
-    
-    line = 0
-    inFile = FreeFile
-    Open OutLineFileName For Input As #inFile
-    x = 0
-    y = 0
-    Do While Not EOF(inFile)
-      RelaxForGUI last_time, 0
-      Line Input #inFile, s
-      s = Trim(s)
-      idx = 1
-      line = line + 1
-      
-      Select Case Left(s, 1)
-        Case "%"
-          Select Case Left(s, 3)
-            Case "%MO" ' Unit setting
-              Select Case Mid(s, 4, 3)
-                Case "MM*"  ' Using mm unit
-                  DrillToSW = InchToSW / 25.4          ' SW/in
-                  GerberNumberToSW = GerbScale / 25.4  ' SW/unit
-                Case "IN*" ' Using Inch unit
-                  DrillToSW = InchToSW          ' SW/in
-                  GerberNumberToSW = GerbScale  ' SW/unit
-                End Select
-              
-            Case "%FS"
-              If Mid(s, 4, 1) = "L" Then
-                Leading = True
-              Else
-                Leading = False
-              End If
-                
-              If Mid(s, 5, 1) = "A" Then
-                absolute_mode = True
-              Else
-                absolute_mode = False
-              End If
-                
-              GerberNumberToSW = DrillToSW / (10 ^ CInt(Mid(s, 8, 1)))
-          End Select
-        
-        Case "X", "Y", "G"
-        
-          If Mid(s, idx, 1) = "G" Then
-            idx = idx + 1
-            num0 = Utilities.GerberNumber(s, 1, 1, , True, idx)
-            If num0 <= 3 Then
-              ' G01, G02, G03
-              graphic_mode = num0
-            ElseIf num0 < 74 Then
-              num0 = 4 ' Ignore the rest
-            ElseIf num0 <= 75 Then
-              ' G74, G75
-              quadrant_mode = num0
-              num0 = 4  ' Ignore the rest
-            Else
-              num0 = 4  ' Ignore the rest
-            End If
-          Else
-            num0 = 0
-          End If
-          
-          If num0 <> 4 And Mid(s, idx, 1) <> "*" Then
-            'Get X
-            If Mid(s, idx, 1) = "X" Then
-              idx = idx + 1
-              x1 = Utilities.GerberNumber(s, DrillToSW, GerberNumberToSW, , Leading, idx)
-              If Not absolute_mode Then
-                x1 = x1 + x
-              End If
-            Else
-              x1 = x
-            End If
-            
-            ' Get Y
-            If Mid(s, idx, 1) = "Y" Then
-              idx = idx + 1
-              y1 = Utilities.GerberNumber(s, DrillToSW, GerberNumberToSW, , Leading, idx)
-              If Not absolute_mode Then
-                y1 = y1 + y
-              End If
-            Else
-              y1 = y
-            End If
-            
-            'Get Center X
-            If Mid(s, idx, 1) = "I" Then
-              idx = idx + 1
-              x2 = Utilities.GerberNumber(s, DrillToSW, GerberNumberToSW, , Leading, idx)
-            Else
-              x2 = 0
-            End If
-            
-            ' Get Center Y
-            If Mid(s, idx, 1) = "J" Then
-              idx = idx + 1
-              y2 = Utilities.GerberNumber(s, DrillToSW, GerberNumberToSW, , Leading, idx)
-            Else
-              y2 = 0
-            End If
-                        
-            ' Get D-Code
-            If Mid(s, idx, 1) = "D" Then
-              idx = idx + 1
-              dcode = Utilities.GerberNumber(s, 1, 1, , True, idx)
-            End If
-            
-            ' D-Code
-            If dcode = 1 Then
-              Select Case graphic_mode
-                Case 1
-                  mySketch.CreateLine x, y, 0#, x1, y1, 0#
-                Case 2, 3 ' Arc Clockwise/CounterClockwise
-                  Select Case quadrant_mode
-                    Case 75 ' Multi Quadrant
-                      mySketch.CreateArc x + x2, y + y2, 0#, _
-                                         x, y, 0#, _
-                                         x1, y1, 0#, _
-                                         (graphic_mode * 2 - 5)
-                    Case 74
-                      SingleQuadrantArcCenter x, y, x2, y2, x1, y1, (graphic_mode = 2)
-                      mySketch.CreateArc x + x2, y + y2, 0#, _
-                                         x, y, 0#, _
-                                         x1, y1, 0#, _
-                                         (graphic_mode * 2 - 5)
-                  End Select
-              End Select
-            End If
-            
-            x = x1
-            y = y1
-          End If
-      End Select
-      
-    Loop
-    Close #inFile
+    GenerateSketchFromGerber Part, OutLineFileName
   Else
-    mySketch.CreateCornerRectangle boardMinX, boardMinY, 0#, boardMaxX, boardMaxY, 0#
+    brdSp = 0.1 * InToMeter
+    Part.SketchManager.CreateCornerRectangle _
+          MinBrd.MinX - brdSp, MinBrd.MinY - brdSp, 0# _
+        , MinBrd.MaxX + brdSp, MinBrd.MaxY + brdSp, 0#
   End If
   FrmStatus.PopTODO
   
   ' Extruse sketches to generate board part
   Dim feature As IFeature, tf
+  Dim myfeature As IFeatureManager
+  
+  Part.Extension.SelectByID2 "Board_Outline", "SKETCH", 0, 0, 0, False, 0, Nothing, 0
+  Part.Extension.SelectByID2 "Front Plane", "PLANE", 0, 0, 0, True, 16, Nothing, 0
+  Set myfeature = Part.FeatureManager
   Set feature = myfeature.FeatureExtrusion2( _
     True, False, False, _
     swEndCondMidPlane, swEndCondMidPlane, _
@@ -633,6 +560,8 @@ DrillDone:
     swStartOffset, 0, False)
   
   If Not feature Is Nothing Then
+    Dim mat
+    
     feature.Name = "PCBBoard"
     mat = feature.GetMaterialPropertyValues2(swThisConfiguration, Nothing)
     mat(0) = PCBColorR
@@ -646,14 +575,14 @@ DrillDone:
     mat(8) = 0.2 'Emission
     feature.SetMaterialPropertyValues2 mat, swThisConfiguration, Nothing
   Else
-    mySketch.InsertSketch True
+    Part.SketchManager.InsertSketch True
   End If
   FrmStatus.PopTODO
   
-  mySketch.DisplayWhenAdded = True
-  mySketch.AddToDB = False
+  Part.SketchManager.DisplayWhenAdded = True
+  Part.SketchManager.AddToDB = False
   Part.Extension.AddComment DrillFileName
-End Sub
+End Sub ' GeneratePCB
 
 
 Sub GenerateVMRL(Part As IPartDoc _
@@ -682,11 +611,11 @@ Sub GenerateVMRL(Part As IPartDoc _
   Set st = New Stack_String
   Set points = New Stack_Dbl
   
-  Dim mySketch As SketchManager
+  Dim mySketchMgr As SketchManager
   Dim myfeature As FeatureManager
-  Set mySketch = Part.SketchManager
-  mySketch.AddToDB = True
-  mySketch.DisplayWhenAdded = False
+  Set mySketchMgr = Part.SketchManager
+  mySketchMgr.AddToDB = True
+  mySketchMgr.DisplayWhenAdded = False
   
   Part.SetAddToDB True
 
@@ -743,7 +672,7 @@ Sub GenerateVMRL(Part As IPartDoc _
     start_idx = end_idx
     
     For i = LBound(a) To UBound(a)
-      RelaxForGUI last_time, 0
+      Utilities.RelaxForGUI last_time, 0
       a(i) = Trim(Replace(a(i), vbLf, " "))
       Select Case a(i)
         Case "["
@@ -758,7 +687,7 @@ Sub GenerateVMRL(Part As IPartDoc _
             max_z = -10000000000000#
             If genWireFrame Then
               points.Clear
-              mySketch.Insert3DSketch True
+              mySketchMgr.Insert3DSketch True
             End If
           End If
           
@@ -773,8 +702,8 @@ Sub GenerateVMRL(Part As IPartDoc _
             Then
               Part.ClearSelection2 True
               Part.Extension.SelectByID2 "Front Plane", "PLANE", 0, 0, 0, False, 0, Nothing, 0
-              mySketch.InsertSketch True
-              mySketch.Create3PointCornerRectangle min_x, min_y, 0#, min_x, max_y, 0#, max_x, max_y, 0#
+              mySketchMgr.InsertSketch True
+              mySketchMgr.Create3PointCornerRectangle min_x, min_y, 0#, min_x, max_y, 0#, max_x, max_y, 0#
               Set pp = Part.FeatureManager.FeatureExtrusion2( _
                 True, False, False, _
                 swEndCondMidPlane, swEndCondMidPlane, _
@@ -837,8 +766,8 @@ Sub GenerateVMRL(Part As IPartDoc _
   Close #inFile
 
 DONE_LABEL:
-  mySketch.DisplayWhenAdded = True
-  mySketch.AddToDB = False
+  mySketchMgr.DisplayWhenAdded = True
+  mySketchMgr.AddToDB = False
   Part.Extension.AddComment FileName
 End Sub
 
@@ -846,7 +775,7 @@ End Sub
 Sub GeneratePCBAssembly(Part As IAssemblyDoc _
   , boardFilename As String _
   , PosFileName As String _
-  , BOMFileName As String, _
+  , BOMFileName As String _
   , Optional overwriteGeneratedVRML = False _
   , Optional genMinMaxBox As Boolean = True _
   , Optional genWireFrame As Boolean = False _
@@ -955,7 +884,7 @@ Sub GeneratePCBAssembly(Part As IAssemblyDoc _
   line = 0
   start_time = Now
   Do While Not EOF(inFile)
-    RelaxForGUI last_time, 0
+    Utilities.RelaxForGUI last_time, 0
     Line Input #inFile, s
     line = line + 1
     If Trim(s) <> "" Then
@@ -1188,7 +1117,7 @@ Sub GeneratePCBAssembly(Part As IAssemblyDoc _
     FrmStatus.setMaxValue compNames.Count
     For i = LBound(vcomponents) To UBound(vcomponents)
       FrmStatus.setCurrentValue i
-      RelaxForGUI last_time, 0
+      Utilities.RelaxForGUI last_time, 0
       Set tmpComp = vcomponents(i)
       tempStr = Replace(compRef.GetValue(i), "@", "at")
       tmpComp.ComponentReference = tempStr
@@ -1225,8 +1154,8 @@ Sub main()
     PCBCfgForm.PosFileName = ""
     PCBCfgForm.BOMFileName = ""
     
-    DrillScale = InchToSW / 10000#  ' unit/in
-    GerbScale = InchToSW / 10000#   ' unit/in
+    DrillScale = 1#  ' unit/in
+    GerbScale = 1#   ' unit/in
     
     POSScale = InchToSW / 1000#     ' unit/in
     AngScale = 1                    ' unit/degree
@@ -1246,8 +1175,8 @@ Sub main()
     BOM_RotColIdx = 8
     BOM_ModleFileColIdx = 11
     
-    PCBCfgForm.txtDrillScale = CStr(InchToSW / DrillScale)
-    PCBCfgForm.txtGerbScale = CStr(InchToSW / GerbScale)
+    PCBCfgForm.txtDrillScale = CStr(1 / DrillScale)
+    PCBCfgForm.txtGerbScale = CStr(1 / GerbScale)
     PCBCfgForm.txtPosScale = CStr(InchToSW / POSScale)
     PCBCfgForm.txtPosAngleScale = CStr(AngScale)
     PCBCfgForm.txtWRLScale = CStr(InchToSW / VRMLScale)

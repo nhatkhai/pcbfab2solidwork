@@ -57,8 +57,8 @@ End Sub
 
 Private Sub cbScaleStyle_Change()
   If LCase(cbScaleStyle.text) = "kicad" Then
-    txtDrillScale.text = "10000" ' 2.4 Format (unit/in)
-    txtGerbScale.text = "10000"  ' 2.4 Format (unit/in)
+    txtDrillScale.text = "1" ' 2.4 Format (unit/in)
+    txtGerbScale.text = "1"  ' 2.4 Format (unit/in)
     txtPosScale.text = "1"       ' unit/in
     txtPosAngleScale.text = "-1" ' unit/degree
     txtWRLScale.text = "10"      ' unit/in
@@ -68,8 +68,8 @@ Private Sub cbScaleStyle_Change()
     Gerber_To_3D.POS_RotColIdx = 4
     Gerber_To_3D.POS_SideColIdx = 5
   ElseIf LCase(cbScaleStyle.text) = "pad" Then
-    txtDrillScale.text = "10000" ' 2.4 Format (unit/in)
-    txtGerbScale.text = "10000"  ' 2.4 Format (unit/in)
+    txtDrillScale.text = "1" ' 2.4 Format (unit/in)
+    txtGerbScale.text = "1"  ' 2.4 Format (unit/in)
     txtPosScale.text = "1000"    ' unit/in
     txtPosAngleScale.text = "1"  ' unit/degree
     txtWRLScale.text = "1"       ' unit/in
@@ -209,17 +209,17 @@ End Sub
 Private Sub txtDrillScale_Change()
   Dim n
   On Error Resume Next
-  n = Gerber_To_3D.InchToSW / CDbl(Me.txtDrillScale)
+  n = 1 / CDbl(Me.txtDrillScale)
   Gerber_To_3D.DrillScale = n
-  Me.txtDrillScale = CStr(Gerber_To_3D.InchToSW / Gerber_To_3D.DrillScale)
+  Me.txtDrillScale = CStr(1 / Gerber_To_3D.DrillScale)
 End Sub
 
 Private Sub txtGerbScale_Change()
   Dim n
   On Error Resume Next
-  n = Gerber_To_3D.InchToSW / CDbl(Me.txtGerbScale)
+  n = 1 / CDbl(Me.txtGerbScale)
   Gerber_To_3D.GerbScale = n
-  Me.txtGerbScale = CStr(Gerber_To_3D.InchToSW / Gerber_To_3D.GerbScale)
+  Me.txtGerbScale = CStr(1 / Gerber_To_3D.GerbScale)
 End Sub
 
 Private Sub txtMinHole_Change()
