@@ -542,22 +542,25 @@ Sub GeneratePCB(Part As IPartDoc _
   End If
   FrmStatus.PopTODO
   
-  ' Extruse sketches to generate board part
-  Dim feature As IFeature, tf
-  Dim myfeature As IFeatureManager
-  
-  Part.Extension.SelectByID2 "Board_Outline", "SKETCH", 0, 0, 0, False, 0, Nothing, 0
-  Part.Extension.SelectByID2 "Front Plane", "PLANE", 0, 0, 0, True, 16, Nothing, 0
-  Set myfeature = Part.FeatureManager
-  Set feature = myfeature.FeatureExtrusion2( _
-    True, False, False, _
-    swEndCondMidPlane, swEndCondMidPlane, _
-    PCB_Thickness * InToMeter, PCB_Thickness * InToMeter, _
-    False, False, False, False, _
-    0.01745329251994, 0.01745329251994, _
-    False, False, False, False, _
-    False, True, True, _
-    swStartOffset, 0, False)
+
+  Dim featureMgr As IFeatureManager
+  Dim myExt as IModelDocExtension
+  Dim feature As IFeature
+
+  Set featureMgr = Part.FeatureManager
+  Set myExt = Part.Extension
+
+  ' Extruse sketches to generate board from Board Outline
+  myExt.SelectByID2 "Board_Outline", "SKETCH", 0, 0, 0, False, 0, Nothing, 0
+  myExt.SelectByID2 "Front Plane", "PLANE", 0, 0, 0, True, 16, Nothing, 0
+  Set feature = featureMgr.FeatureExtrusion2( True, False, False _
+    , swEndCondMidPlane, swEndCondMidPlane _
+    , PCB_Thickness * InToMeter, PCB_Thickness * InToMeter _
+    , False, False, False, False _
+    , 1.74532925199433E-02, 1.74532925199433E-02 _
+    , False, False, False, False _
+    , False, True, True _
+    , swStartOffset, 0, False)
   
   If Not feature Is Nothing Then
     Dim mat
@@ -577,6 +580,20 @@ Sub GeneratePCB(Part As IPartDoc _
   Else
     Part.SketchManager.InsertSketch True
   End If
+
+  ' Cut hold into Board from Drill
+  myExt.SelectByID2 "Drill", "SKETCH", 0, 0, 0, False, 0, Nothing, 0
+  myExt.SelectByID2 "Front Plane", "PLANE", 0, 0, 0, True, 16, Nothing, 0
+  featureMgr.FeatureCut4  True, False, False _
+    , swEndCondMidPlane, swEndCondMidPlane _
+    , PCB_Thickness * InToMeter, PCB_Thickness * InToMeter _
+    , False, False, False, False _
+    , 1.74532925199433E-02, 1.74532925199433E-02 _
+    , False, False, False, False _
+    , False, True, True _
+    , True, True, False _
+    , swStartOffset, 0, False, False
+
   FrmStatus.PopTODO
   
   Part.SketchManager.DisplayWhenAdded = True
@@ -612,7 +629,6 @@ Sub GenerateVMRL(Part As IPartDoc _
   Set points = New Stack_Dbl
   
   Dim mySketchMgr As SketchManager
-  Dim myfeature As FeatureManager
   Set mySketchMgr = Part.SketchManager
   mySketchMgr.AddToDB = True
   mySketchMgr.DisplayWhenAdded = False
