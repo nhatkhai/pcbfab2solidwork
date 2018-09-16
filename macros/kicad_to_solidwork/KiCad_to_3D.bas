@@ -441,7 +441,7 @@ Sub GeneratePCB(Part As IPartDoc, FileName As String, _
                   
                 Case "T0", "T1"
                   If a(8) = "V" And (shape And 1 <> 0) Then
-                    s = myMerge(a, 11, UBound(a))
+                    s = StrJoin(a, 11, UBound(a))
                     x2 = CDbl(a(5)) / 10 ' Angle
                     Do While x2 > 90
                       x2 = x2 - 180
@@ -491,10 +491,10 @@ Sub GeneratePCB(Part As IPartDoc, FileName As String, _
             Case "$TEXTPCB"
               Select Case a(0)
                 Case "Te"
-                  s = myMerge(a, 1, UBound(a))
+                  s = StrJoin(a, 1, UBound(a))
                   data1(0) = Mid(s, 2, Len(s) - 2)
                 Case "nl"
-                  s = myMerge(a, 1, UBound(a))
+                  s = StrJoin(a, 1, UBound(a))
                   data1(0) = data1(0) + vbCr + Mid(s, 2, Len(s) - 2)
                 Case "Po"
                   data2 = a
@@ -1740,12 +1740,12 @@ Sub GeneratePCBAssembly(Part As IAssemblyDoc, FileName As String, _
                   End If
                 
                 Case "T0" ' Reference
-                  mod_ref = myMerge(a, 11, UBound(a))
+                  mod_ref = StrJoin(a, 11, UBound(a))
                   mod_ref = (Mid(mod_ref, 2, Len(mod_ref) - 2))
                   mod_layer = CInt(a(9))
                 
                 Case "T1" ' Value
-                  mod_val = myMerge(a, 11, UBound(a))
+                  mod_val = StrJoin(a, 11, UBound(a))
                   mod_val = (Mid(mod_val, 2, Len(mod_val) - 2))
                   
                 Case "DS"
@@ -1775,7 +1775,7 @@ Sub GeneratePCBAssembly(Part As IAssemblyDoc, FileName As String, _
             Case "$SHAPE3D"
               Select Case a(0)
                 Case "Na"
-                  Na = myMerge(a, 1, UBound(a))
+                  Na = StrJoin(a, 1, UBound(a))
                   Na = (Replace(Mid(Na, 2, Len(Na) - 2), "\\", "\"))
                   data_flag = data_flag Or 2
                 

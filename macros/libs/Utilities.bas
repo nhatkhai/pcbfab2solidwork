@@ -10,17 +10,25 @@ Option Explicit
 Public Const PI = 3.14159265358979
 Public Const SearchPaths = "c:\Program Files\KiCad\share\modules\packages3d"
 
-Function myMerge(a() As String, fromIdx As Integer, toIdx As Integer) As String
+
+Function StrJoin(a() As String _
+  , fromIdx As Integer _
+  , toIdx As Integer _
+  , Optional joinStr As String = " " ) As String
+
   Dim i As Integer
   Dim s As String
   s = a(fromIdx)
   For i = fromIdx + 1 To toIdx
-    s = s + " " + a(i)
+    s = s + joinStr + a(i)
   Next i
-  myMerge = s
+  StrJoin = s
 End Function
 
-Function FindFile(Path As String, FileName As String, ByVal ext As String) As String
+
+Function FindFile(Path As String, FileName As String _
+  , ByVal ext As String) As String
+
   Dim tmpStr, p, rs
   FindFile = ""
   
@@ -55,17 +63,20 @@ Error1:
   Resume Next
 End Function
 
+
 Function RemoveFileExt(ByVal strPath As String) As String
     On Error Resume Next
     RemoveFileExt = strPath
     RemoveFileExt = Left$(strPath, InStrRev(strPath, ".") - 1)
 End Function
 
+
 Function GetFileExt(ByVal strPath As String) As String
     On Error Resume Next
     GetFileExt = ""
     GetFileExt = Mid$(strPath, InStrRev(strPath, "."))
 End Function
+
 
 Function FileNameNoExt(strPath As String) As String
     On Error Resume Next
@@ -75,36 +86,19 @@ Function FileNameNoExt(strPath As String) As String
     FileNameNoExt = Left$(strTemp, InStrRev(strTemp, ".") - 1)
 End Function
  
+
 Function GetFileName(strPath As String) As String
     On Error Resume Next
     GetFileName = strPath
     GetFileName = Mid$(strPath, InStrRev(strPath, "\") + 1)
 End Function
  
+
 Function FilePath(strPath As String) As String
     On Error Resume Next
     FilePath = Left$(strPath, InStrRev(strPath, "\"))
 End Function
 
-Sub Rotate2D(ByRef x As Double, ByRef y As Double, ByVal angle As Double, ByVal OFS_x As Double, ByVal OFS_y As Double)
-  Dim ts, tc, tx, ty
-  ts = Sin(angle * PI / 180)
-  tc = Cos(angle * PI / 180)
-  tx = x * tc + y * ts + OFS_x
-  ty = y * tc - x * ts + OFS_y
-  x = tx
-  y = ty
-End Sub
-
-Function RelaxForGUI(ByRef last_time As Long, ByVal interval As Long) As Boolean
-  If Timer >= last_time Then
-    DoEvents
-    last_time = Timer + interval
-    RelaxForGUI = True
-  Else
-    RelaxForGUI = False
-  End If
-End Function
 
 Function ReadCSVRow(ByVal row As String) As Variant
   Dim tmpa, tmpb, tmpj, tmpi, sz, tmps
@@ -138,6 +132,7 @@ Function ReadCSVRow(ByVal row As String) As Variant
   ReadCSVRow = cols
 End Function
 
+
 Function ReadSpaceSepVecRow(ByVal row As String) As Variant
   Dim tmpa, tmpb, tmpj, tmpi, sz, tmps
   Dim cols()
@@ -170,6 +165,7 @@ Function ReadSpaceSepVecRow(ByVal row As String) As Variant
   
   ReadSpaceSepVecRow = cols
 End Function
+
 
 Function Read3DBOMFile(FileName As String) As Object
   Dim dict
@@ -236,7 +232,20 @@ Function Read3DBOMFile(FileName As String) As Object
   Set Read3DBOMFile = dict
 End Function
 
-'
+
+' This help script run faster by slow down Solidwork update rate while 
+' generating many Solidwork Objects.
+Function RelaxForGUI(ByRef last_time As Long, ByVal interval As Long) As Boolean
+  If Timer >= last_time Then
+    DoEvents
+    last_time = Timer + interval
+    RelaxForGUI = True
+  Else
+    RelaxForGUI = False
+  End If
+End Function
+
+
 ' Extract a number in strNum from offset of StartIdx in the string.
 '
 ' The number will be extracted base on Gerber FS format. It then apply the
@@ -309,6 +318,27 @@ Function GerberNumber(ByVal strNum As String _
   
 End Function
 
+
+' Function extract Gerber CMD string from strNum starting at position
+' StartIdx in the string.
+'
+' @example:
+'   * GerberCMD("%ADD10C,0.1*%", Idx) -> "%ADD", and Idx change from 1 to 5
+'   * GerberCMD("%ADD10C,0.1*%", Idx) -> "C", and Idx change from 7 to 9
+'   * GerberCMD("G70*", Idx, "G" ) -> "G", and Idx change from 1 to 2
+'   * GerberCMD("G70*", Idx, Null) -> "G", and Idx change from 1 to 2
+'   * GerberCMD("G70*", Idx, "E" ) -> Null, and Idx stay at 1
+'
+' @param strNum [in] a line in Gerber file
+' @param StartIdx [in/out] Specify initial location for extract Gerber CMD.
+'           StartIdx will be advanced after the extract command string.
+' @param testCMD [in] A string use to test against the extracted Gerber
+'           CMD. If Null, test will be omitted.
+'
+' @return Null when the test faild, the StartIdx value will not be
+'   modified. Return a extract Gerber CMD string when the test is matched
+'   or omitted
+'
 Function GerberCMD(ByVal strNum As String _
   , Optional ByRef StartIdx = 1 _
   , Optional ByRef testCMD = Null)
@@ -345,23 +375,26 @@ Function GerberCMD(ByVal strNum As String _
   
 End Function
 
+
+' Function return angle in radiant between [-pi;pi] with given x and y
+' coordinate, using following scheme:
+' 
+' x<0, y>0:  angle = 180+atn(y/x)  =  90-atn(x/y)
+' x>0, y>0:  angle =     atn(y/x)  =  90-atn(x/y)
+' x>0, y<0:  angle =     atn(y/x)  = -90-atn(x/y)
+' x<0, y<0:  angle =-180+atn(y/x)) = -90-atn(x/y)
+'
+'                   |
+'                   |
+'        90-atn(x/y)|  90-atn(x/y)
+'       180+atn(y/x)|  atn(y/x)
+'   ----------------+-----------------
+'      -180+atn(y/x)|  atn(y/x)
+'      -90 -atn(x/y)| -90-atn(x/y)
+'                   |
+'                   |
+'
 Function angle(x As Double, y As Double) As Double
-  ' x<0, y>0:  angle = 180+atn(y/x)  =  90-atn(x/y)
-  ' x>0, y>0:  angle =     atn(y/x)  =  90-atn(x/y)
-  ' x>0, y<0:  angle =     atn(y/x)  = -90-atn(x/y)
-  ' x<0, y<0:  angle =-180+atn(y/x)) = -90-atn(x/y)
-  '
-  '                    |
-  '                    |
-  '        90-atn(x/y)|  90-atn(x/y)
-  '       180+atn(y/x)|  atn(y/x)
-  '   ----------------+-----------------
-  '      -180+atn(y/x)|  atn(y/x)
-  '      -90 -atn(x/y)| -90-atn(x/y)
-  '                    |
-  '                    |
-  '
-  '
   If y >= 0 Then
     If x >= 0 Then
       ' First Quadrant
@@ -399,6 +432,9 @@ Function angle(x As Double, y As Double) As Double
   End If
 End Function
 
+
+' Normalize angle x to radiant value between [-pi;pi]
+'
 Function normalizeAngle(ByVal x As Double)
   Do While x > PI
     x = x - 2 * PI
@@ -408,6 +444,18 @@ Function normalizeAngle(ByVal x As Double)
   Loop
   normalizeAngle = x
 End Function
+
+
+Sub Rotate2D(ByRef x As Double, ByRef y As Double, ByVal angle As Double, ByVal OFS_x As Double, ByVal OFS_y As Double)
+  Dim ts, tc, tx, ty
+  ts = Sin(angle * PI / 180)
+  tc = Cos(angle * PI / 180)
+  tx = x * tc + y * ts + OFS_x
+  ty = y * tc - x * ts + OFS_y
+  x = tx
+  y = ty
+End Sub
+
 
 Function SingleQuadrantArcCenter(ByVal x1 As Double, ByVal y1 As Double, _
   ByRef dcx As Double, ByRef dcy As Double, _
@@ -442,14 +490,8 @@ Function SingleQuadrantArcCenter(ByVal x1 As Double, ByVal y1 As Double, _
   If i = 2 Or i = 3 Then dcy = -dcy
 End Function
 
-Function setTextWidth(ByVal s As String, w As Integer) As String
-  If Len(s) >= w Then
-    setTextWidth = s
-  Else
-    setTextWidth = s + Left("                             ", w - Len(s))
-  End If
-End Function
 
+' This is just manual one op code testing
 Function REMOVE_TEST()
   'Dim d
   'Set d = Read3DBOMFile("C:\Documents and Settings\knguyen\Desktop\Projects\IGOR\igor1_prototype\pcb\Gerber_MAIN_PCB\Rev3\REMOVE_BOM.csv")
