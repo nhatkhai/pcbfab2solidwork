@@ -32,7 +32,7 @@ End Sub
 
 Private Sub BtnOutlineFile_Click()
   Me.OutLineFileName = swApp.GetOpenFileName("Select Board outline gerber file", _
-    Me.OutLineFileName, "Outline Files|*.g*r;*.pho;*.g*o|All|*.*|", 0, "", "")
+    Me.OutLineFileName, "Outline Files|*.g*r;*.pho;*.g*o;*.gm*|All|*.*|", 0, "", "")
 End Sub
 
 Private Sub BtnTopSilkFile_Click()
