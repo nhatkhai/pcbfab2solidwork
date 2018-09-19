@@ -109,11 +109,17 @@ Function GenerateSketchFromDrill(Part As IPartDoc _
   Dim inFile  As Integer ' File handle for access Gerber File
   Dim line    As Long    ' Tracking current line in Gerber file
   Dim idx     As Integer ' Tracking current line offset in Gerber file
+
+  Dim ignore  As Boolean ' Use to track and warning user unsupported drill
+                         ' commands
+
+  Dim DrillSec As Boolean ' Tracking current line is inside Drill Section 
   
   Dim s As String, ss As String
   Dim x As Double, y As Double
   Dim x1 As Double, y1 As Double
-  Dim last_time As Long
+
+  Dim last_time As Long ' Use to control Solidwork update GUI rate
   
   Dim DrillToSW As Double ' faction_number_unit/SW.unit
   Dim CorrectScale As Double ' gerber_number_unit/SW.unit
@@ -152,24 +158,54 @@ Function GenerateSketchFromDrill(Part As IPartDoc _
   
   inFile = FreeFile
   Open DrillFileName For Input As #inFile
+
+  ' Search the for M48 mark beginning of the Drill header
+  DrillSec = False
   Do While Not EOF(inFile)
+    Line Input #inFile, s
+    s = Trim(s)
+    line = line + 1
+    If s = "M48" Then 
+      DrillSec = True
+      Exit Do
+    End If
+  Loop
+
+  If Not DrillSec Then
+    FrmStatus.AppendTODO "Not a valid Drill file"
+    FrmStatus.PopTODO
+  End If
+
+  ' Process each line in Drill File (after it's header command)
+  Do While (Not EOF(inFile)) Or (Not DrillSec)
     Utilities.RelaxForGUI last_time, 0
     Line Input #inFile, s
     s = Trim(s)
     idx = 1
     line = line + 1
+    ignore = False
     
     Do
       ss = Utilities.GerberCMD(s, idx)
       Select Case ss
+        Case ""
+          Exit Do
+
         Case "M"
           Select Case Utilities.GerberNumber(s, StartIdx:=idx)
             Case 72 ' English Mode (inch)
               DrillToSW = InchToSW           ' SW/in
             Case 71 ' METRIC Mode (mm)
               DrillToSW = InchToSW / 25.4            ' SW/mm
-            Case Else ' Ignore remain, read next line
+            Case 48 ' Start of the Drill File Header
+              ignore = True
+            Case 95 ' End of the Drill File Header
               Exit Do
+            Case 30 ' End of the Drill File
+              DrillSec = False
+              Exit Do
+            Case Else ' Ignore remain, read next line
+              ignore = True
           End Select
         
         Case "INCH" ' English Mode (inch)
@@ -200,7 +236,7 @@ Function GenerateSketchFromDrill(Part As IPartDoc _
             Case 92, 93 ' Ingore Set Zero Command
               Exit Do
             Case Else  ' Ignore remain, read next line
-              GoTo IgnoreDrill
+              ignore = True
           End Select
           
         Case "T"
@@ -258,25 +294,37 @@ Function GenerateSketchFromDrill(Part As IPartDoc _
           x1 = x
           y1 = y
         
-        Case "FMAT", "%", "", "ICI"
+        Case "FMAT"
+          Select Case Utilities.GerberNumber(s, StartIdx:=idx) 
+            Case 2 ' This script only recognize format version 2
+              Exit Do
+            Case Else
+              ignore = True
+          End Select
+
+        Case "%" ' End if Drill Header
           Exit Do
+
+        Case "ICI"
+          ignore = True
           
         Case Else  ' Ignore remain, read next line
           If Left(ss, 1) = ";" Then
             Exit Do
           End If
-          GoTo IgnoreDrill
+          ignore = True
       End Select
-    Loop
-    GoTo DrillDone
 
-IgnoreDrill:
+      If ignore Then
         FrmStatus.AppendTODO "Ignore Drill Command " + s + " @ line " + CStr(line)
         FrmStatus.PopTODO
-DrillDone:
-        On Error GoTo 0
+        Exit Do
+      End If
+    Loop ' Process Dril commands
+
+    If Not DrillSec Then Exit Do
     
-  Loop
+  Loop ' Read next Drill command line
   Close #inFile
 
   Set GenerateSketchFromDrill = MinBrd
@@ -301,6 +349,7 @@ Sub GenerateSketchFromGerber(Part As IPartDoc _
   Dim inFile  As Integer ' File handle for access Gerber File
   Dim line    As Long    ' Tracking current line in Gerber file
   Dim idx     As Integer ' Tracking current line offset in Gerber file
+  Dim ignore  As Boolean 
   
   Dim s As String
   Dim x As Double, y As Double
@@ -343,6 +392,7 @@ Sub GenerateSketchFromGerber(Part As IPartDoc _
     s = Trim(s)
     idx = 1
     line = line + 1
+    ignore = False
     
     Select Case Left(s, 1)
       Case "%"
@@ -353,7 +403,9 @@ Sub GenerateSketchFromGerber(Part As IPartDoc _
                 GerberToSW = InchToSW / 25.4          ' SW/in
               Case "IN*" ' Using Inch unit
                 GerberToSW = InchToSW          ' SW/in
-              End Select
+              Case Else
+                ignore = True
+            End Select
             
           Case "%FS"
             If Mid(s, 4, 1) = "L" Then
@@ -371,24 +423,33 @@ Sub GenerateSketchFromGerber(Part As IPartDoc _
             CorrectScale = GerbScale / (10 ^ CInt(Mid(s, 8, 1)))
             NumDigit = CInt(Mid(s, 7, 1)) + CInt(Mid(s, 8, 1))
         End Select
+
+      Case "M"
+        idx = idx + 1
+        Select Case Utilities.GerberNumber(s, StartIdx:=idx)
+          Case 2 ' M02 - End of Gerber file
+            Exit Do
+          Case Else
+            ignore = True
+        End Select
       
       Case "X", "Y", "G"
       
         If Mid(s, idx, 1) = "G" Then
           idx = idx + 1
           num0 = Utilities.GerberNumber(s, StartIdx:=idx)
-          If num0 <= 3 Then
-            ' G01, G02, G03
-            graphic_mode = num0
-          ElseIf num0 < 74 Then
-            num0 = 4 ' Ignore the rest
-          ElseIf num0 <= 75 Then
-            ' G74, G75
-            quadrant_mode = num0
-            num0 = 4  ' Ignore the rest
-          Else
-            num0 = 4  ' Ignore the rest
-          End If
+          Select Case num0
+            Case 1, 2, 3 ' G01, G02, G03
+              graphic_mode = num0
+            Case 4 ' G04 - Comment
+              num0 = 4
+            Case 74, 75 ' G74, G75
+              quadrant_mode = num0
+              num0 = 4  ' Ignore the rest
+            Case Else
+              num0 = 4  ' Ignore the rest
+              ignore = True
+            End Select
         Else
           num0 = 0
         End If
@@ -468,8 +529,22 @@ Sub GenerateSketchFromGerber(Part As IPartDoc _
           x = x1
           y = y1
         End If
+
+        If num0 <> 4 Then
+          If Mid(s, idx, 1) = "*" Then idx = idx+1
+          s = Mid(s, idx)
+          ignore = Len(s)>0
+        End If
+
+      Case Else
+        ignore = True
     End Select
-  Loop
+
+    If ignore Then
+      FrmStatus.AppendTODO "Ignore Gerber Command " + s + " @ line " + CStr(line)
+      FrmStatus.PopTODO
+    End If
+  Loop ' Process each line in Gerber file
   Close #inFile
 
   mySketchMgr.DisplayWhenAdded = True
