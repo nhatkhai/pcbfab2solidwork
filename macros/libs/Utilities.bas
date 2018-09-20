@@ -257,7 +257,7 @@ End Function
 '                 , 1e-4, 6  <-- 2.4 FS Format yeild 1e-4, 6
 '                                4.6 FS Format yeild 1e-6, 10
 '                                2.5 FS Format yeild 1e-6, 7 
-'                 , True
+'                 , False
 '                 , Idx) -> 0.0123*25.4, and Idx change from 2 to 5
 ' 
 ' @param strNum [in] a string containt gerber number that need to be
@@ -282,15 +282,26 @@ Function GerberNumber(ByVal strNum As String _
   , Optional ByVal UnitScale As Double = 1 _
   , Optional ByVal CorrectScale As Double = 1 _
   , Optional ByVal NumDigit As Integer = 6 _
-  , Optional ByVal Leading As Boolean = True _
+  , Optional ByVal Leading As Boolean = False _
   , Optional ByRef StartIdx = 1) As Double
   Dim num As Double
   Dim i As Integer
+  Dim dot As Boolean
   
+  dot = False
   i = StartIdx
+
+  Select Case Mid(strNum, i, 1)
+    Case "-", "+"
+      i = i + 1
+  End Select
+
   Do
     Select Case Mid(strNum, i, 1)
-      Case "-", "+", ".", "0" To "9"
+      Case "0" To "9"
+      Case "."
+        If dot Then Exit Do
+        dot = True
       Case Else
         Exit Do
     End Select
@@ -300,9 +311,10 @@ Function GerberNumber(ByVal strNum As String _
   If (i = StartIdx) Then
     num = 0
   Else
-    If Leading = False Then
-      num = CDbl(Left(Mid(strNum, StartIdx, i - StartIdx) _
-                      + String(NumDigit, "0"), NumDigit))
+    If Leading And (Not Dot) Then
+      num = CDbl(Left( Mid(strNum, StartIdx, i - StartIdx) _
+                     + String(NumDigit, "0") _
+                     , NumDigit))
     Else
       num = CDbl(Mid(strNum, StartIdx, i - StartIdx))
     End If

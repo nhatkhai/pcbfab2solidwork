@@ -99,6 +99,24 @@ End Sub
 '
 ' @return A Rect object that containt a minimun board size that would
 '        contains all the drill holes
+'        
+' @note Currently support following commands:
+'   INCH 
+'   METRIC
+'   TZ
+'   FMAT,2
+'   M48     - Start Drill File
+'   M72
+'   M71
+'   M95, %  - End Header
+'   M30
+'   G5      - Drill Mode
+'   G85     - Slot Mode
+'   G90     - Absolute Mode
+'   G91     - Incremental Mode
+'   T##     - Tool Selection
+'   T##C#   - Tool Setting
+'   X#Y#    - Coordinate commands
 '
 Function GenerateSketchFromDrill(Part As IPartDoc _
   , DrillFileName As String _
@@ -122,12 +140,16 @@ Function GenerateSketchFromDrill(Part As IPartDoc _
   Dim last_time As Long ' Use to control Solidwork update GUI rate
   
   Dim DrillToSW As Double ' faction_number_unit/SW.unit
-  Dim CorrectScale As Double ' gerber_number_unit/SW.unit
-  Dim Leading As Integer, num0 As Integer
+  Dim CorrectScale As Double ' Adjust factor for for int -> dbl numbers 
+  Dim Leading As Integer
+  Dim NumDigit As Integer
+
+  Dim num0 As Integer
   Dim graphic_mode As Integer
-  Dim drillTool As Integer
-  Dim radius(100) As Double
-  Dim r As Double
+
+  Dim tools(100) As Double ' Tools' radius setting
+  Dim drillTool As Integer ' Current Tool number
+  Dim r As Double ' Current tool radius
 
   Dim prevSketch
   
@@ -150,8 +172,9 @@ Function GenerateSketchFromDrill(Part As IPartDoc _
   x1 = 0
   y1 = 0
   DrillToSW = InchToSW          ' SW/in
-  CorrectScale = DrillScale ' SW/unit
   Leading = False
+  CorrectScale = DrillScale * 10E-4
+  NumDigit     = 6
   graphic_mode = 5 ' Drill Mode
   r = 0
   Set prevSketch = Nothing
@@ -210,18 +233,28 @@ Function GenerateSketchFromDrill(Part As IPartDoc _
         
         Case "INCH" ' English Mode (inch)
           DrillToSW = InchToSW           ' SW/in
+          CorrectScale = DrillScale * 10E-4
+          NumDigit     = 6
           
         Case "METRIC" ' METRIC Mode (mm)
           DrillToSW = InchToSW / 25.4            ' SW/mm
+          CorrectScale = DrillScale * 10E-3
+          NumDigit     = 5
           
         Case "TZ"
+          Leading = False
+
+        Case "LZ"
           Leading = True
           
         Case "G"
           num0 = Utilities.GerberNumber(s, StartIdx:=idx)
           Select Case num0
             ' Linear, Circular CW, Circular CCW, Variable Dwell, Drill Mode
-            Case 1 To 5
+            Case 1 To 4
+              graphic_mode = num0
+              ignore = True
+            Case 5
               graphic_mode = num0
             Case 85 ' Slot Mode
               If graphic_mode = 5 Then
@@ -233,27 +266,25 @@ Function GenerateSketchFromDrill(Part As IPartDoc _
               absolute_mode = True
             Case 91 ' Incremental Mode
               absolute_mode = False
-            Case 92, 93 ' Ingore Set Zero Command
-              Exit Do
             Case Else  ' Ignore remain, read next line
               ignore = True
           End Select
           
         Case "T"
           drillTool = Utilities.GerberNumber(Left(s, idx + 1), StartIdx:=idx)
-          r = radius(drillTool)
+          r = tools(drillTool)
           
         Case "C"
           r = Utilities.GerberNumber(s, DrillToSW, CorrectScale _
-                                    , , Leading, idx) / 2#
-          radius(drillTool) = r
+                                    , NumDigit, Leading, idx) / 2#
+          tools(drillTool) = r
           
         Case "X", "Y"
           idx = idx - 1
           
           If Not IsNull(Utilities.GerberCMD(s, idx, "X")) Then
             x = Utilities.GerberNumber(s, DrillToSW, CorrectScale _
-                                      , , Leading, idx)
+                                      , NumDigit, Leading, idx)
             If Not absolute_mode Then
               x = x1 + x
             End If
@@ -263,7 +294,7 @@ Function GenerateSketchFromDrill(Part As IPartDoc _
           
           If Not IsNull(Utilities.GerberCMD(s, idx, "Y")) Then
             y = Utilities.GerberNumber(s, DrillToSW, CorrectScale _
-                                      , , Leading, idx)
+                                      , NumDigit, Leading, idx)
             If Not absolute_mode Then
               y = y1 + y
             End If
@@ -342,6 +373,27 @@ End Function ' GenerateSketchFromDrill
 ' @param Z [in] Specify the SolidWork Z-Plane coordinate for sketch
 '             will be generated on. Z default to zero, if omitted.
 '
+' @NOTE Current support
+'   %MO(MM|IN)*            - Units
+'   %FS(L|T)(A|?)X\d\d???  - Number format
+'   M02 - End of Geber section
+'   G04 - Gerber comment
+'   G74 - Single Quadrant
+'   G75 - Multi Quadrant
+'   G90 - Absolute mode
+'   G91 - Incremental mode
+'   [X#][Y#][I#][J#]D01 - Interpolation
+'   [X#][Y#]D02         - Move operation 
+'
+' @NOTE Need to support
+'   G36
+'   G37
+'   AD
+'   D#    Select Aperture Command where #>=10
+'   G54D# Select Aperture Command
+'   D01 With Aperture
+'   D03 With Aperture
+'
 Sub GenerateSketchFromGerber(Part As IPartDoc _
   , GerberFile As String _
   , Optional Z As Double = 0#)
@@ -358,7 +410,7 @@ Sub GenerateSketchFromGerber(Part As IPartDoc _
   Dim last_time As Long
   
   Dim GerberToSW As Double ' faction_number_unit/SW.unit
-  Dim CorrectScale As Double ' Scale all number
+  Dim CorrectScale As Double ' Adjust factor for for int -> dbl numbers 
   Dim NumDigit As Double ' Total Digit format
   
   Dim Leading As Integer, num0 As Integer
@@ -374,7 +426,7 @@ Sub GenerateSketchFromGerber(Part As IPartDoc _
     
   ' Read Silkscreen Gerber file, and sketch silkscreen
   GerberToSW = InchToSW          ' SW/in
-  CorrectScale = GerbScale  ' SW/unit
+  CorrectScale = GerbScale / 1E-4
   NumDigit = 6
   Leading = False
   absolute_mode = True
@@ -409,9 +461,9 @@ Sub GenerateSketchFromGerber(Part As IPartDoc _
             
           Case "%FS"
             If Mid(s, 4, 1) = "L" Then
-              Leading = True
+              Leading = False ' Omit Leading Zero's
             Else
-              Leading = False
+              Leading = True  ' Omit Trailing Zero's
             End If
               
             If Mid(s, 5, 1) = "A" Then
@@ -446,6 +498,10 @@ Sub GenerateSketchFromGerber(Part As IPartDoc _
             Case 74, 75 ' G74, G75
               quadrant_mode = num0
               num0 = 4  ' Ignore the rest
+            Case 90 ' Coordinate format to Absolute
+              absolute_mode = True
+            Case 91 ' Coordinate format to Incremental
+              absolute_mode = False
             Case Else
               num0 = 4  ' Ignore the rest
               ignore = True
@@ -504,27 +560,33 @@ Sub GenerateSketchFromGerber(Part As IPartDoc _
           End If
           
           ' D-Code
-          If dcode = 1 Then
-            Select Case graphic_mode
-              Case 1
-                Set prevSketch = mySketchMgr.CreateLine(x, y, Z, x1, y1, Z)
-              Case 2, 3 ' Arc Clockwise/CounterClockwise
-                Select Case quadrant_mode
-                  Case 75 ' Multi Quadrant
-                    Set prevSketch = mySketchMgr.CreateArc(x + x2, y + y2, Z, _
-                                       x, y, Z, _
-                                       x1, y1, Z, _
-                                       (graphic_mode * 2 - 5))
-                  Case 74
-                    SingleQuadrantArcCenter x, y, x2, y2, x1, y1 _
-                                          , (graphic_mode = 2)
-                    Set prevSketch = mySketchMgr.CreateArc(x + x2, y + y2, Z, _
-                                       x, y, Z, _
-                                       x1, y1, Z, _
-                                       (graphic_mode * 2 - 5))
-                End Select
-            End Select
-          End If
+          Select case dcode
+            Case 1
+              Select Case graphic_mode
+                Case 1
+                  Set prevSketch = mySketchMgr.CreateLine(x, y, Z, x1, y1, Z)
+                Case 2, 3 ' Arc Clockwise/CounterClockwise
+                  Select Case quadrant_mode
+                    Case 75 ' Multi Quadrant
+                      Set prevSketch = mySketchMgr.CreateArc(x + x2, y + y2, Z, _
+                                        x, y, Z, _
+                                        x1, y1, Z, _
+                                        (graphic_mode * 2 - 5))
+                    Case 74
+                      SingleQuadrantArcCenter x, y, x2, y2, x1, y1 _
+                                            , (graphic_mode = 2)
+                      Set prevSketch = mySketchMgr.CreateArc(x + x2, y + y2, Z, _
+                                        x, y, Z, _
+                                        x1, y1, Z, _
+                                        (graphic_mode * 2 - 5))
+                  End Select
+              End Select
+
+            Case 2 ' D02 - Move operation
+
+            Case Else
+              ignore = True
+          End Select
           
           x = x1
           y = y1
