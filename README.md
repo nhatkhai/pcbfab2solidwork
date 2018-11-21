@@ -34,10 +34,20 @@ only).
   * Solidwork -> Tools -> Macro -> New..
   * Chose macro name of your choice, and press on Save
   * MS Visual Basic -> File -> Import File.. (Ctrl+M shortcut) to import
-    all file in macros/libs, and either macros/gerber_to_solidwork or
+    all files in macros/libs, and either macros/gerber_to_solidwork or
     macros/kicad_to_solidwork files.
   * Now you should able to run macro from Solidwork -> Tools -> Macro ->
     Run menu
+
+# 3D BOM Format
+  * It take a CSV file as a table with following header:
+    ```
+    References, any-,  Scale , Offset , Rotation, 3DModel File Path
+              ,thing, X, Y, Z, X, Y, Z, X, Y, Z ,(STEP; VMRL; SLDPRT)
+    ```
+    Path to 3D Model file can be:
+      * Relative path to where the CSV file located
+      * file extension are optional, can be left out
 
 # Know Issues
   * If Gerber for PCB Edge did not enclosed, or have repeated drawing
