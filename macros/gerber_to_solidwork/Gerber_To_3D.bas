@@ -7,6 +7,7 @@ Attribute VB_Name = "Gerber_To_3D"
 '
 Option Explicit
 
+
 Public swApp As ISldWorks
 
 Public Const InToMeter = 25.4 / 1000#  ' (mm/in)
@@ -133,6 +134,7 @@ Function GenerateSketchFromDrill(Part As IPartDoc _
 
   Dim DrillSec As Boolean ' Tracking current line is inside Drill Section
   
+  Dim wholeFile() As String
   Dim s As String, ss As String
   Dim x As Double, y As Double
   Dim x1 As Double, y1 As Double
@@ -168,12 +170,11 @@ Function GenerateSketchFromDrill(Part As IPartDoc _
   minHole = minHole * InToMeter
   
   ' Read NC Drill file, and sketch drill holes
-  line = 0
   x1 = 0
   y1 = 0
   DrillToSW = InchToSW          ' SW/in
   Leading = False
-  CorrectScale = DrillScale * 10E-4
+  CorrectScale = DrillScale * 0.001
   NumDigit = 6
   graphic_mode = 5 ' Drill Mode
   r = 0
@@ -181,18 +182,20 @@ Function GenerateSketchFromDrill(Part As IPartDoc _
   
   inFile = FreeFile
   Open DrillFileName For Input As #inFile
+  wholeFile = Split(Input(LOF(inFile), inFile), vbLf)
+  Close #inFile
 
   ' Search the for M48 mark beginning of the Drill header
   DrillSec = False
-  Do While Not EOF(inFile)
-    Line Input #inFile, s
+  For line = 0 To UBound(wholeFile)
+    s = wholeFile(line)
+    If Right(s, 1) = vbCr Then s = Left(s, Len(s) - 1)
     s = Trim(s)
-    line = line + 1
     If s = "M48" Then
       DrillSec = True
-      Exit Do
+      Exit For
     End If
-  Loop
+  Next line
 
   If Not DrillSec Then
     FrmStatus.AppendTODO "Not a valid Drill file"
@@ -200,12 +203,12 @@ Function GenerateSketchFromDrill(Part As IPartDoc _
   End If
 
   ' Process each line in Drill File (after it's header command)
-  Do While (Not EOF(inFile)) Or (Not DrillSec)
+  For line = line To UBound(wholeFile)
     Utilities.RelaxForGUI last_time, 0
-    Line Input #inFile, s
+    s = wholeFile(line)
+    If Right(s, 1) = vbCr Then s = Left(s, Len(s) - 1)
     s = Trim(s)
     idx = 1
-    line = line + 1
     ignore = False
     
     Do
@@ -233,12 +236,12 @@ Function GenerateSketchFromDrill(Part As IPartDoc _
         
         Case "INCH" ' English Mode (inch)
           DrillToSW = InchToSW           ' SW/in
-          CorrectScale = DrillScale * 10E-4
+          CorrectScale = DrillScale * 0.001
           NumDigit = 6
           
         Case "METRIC" ' METRIC Mode (mm)
           DrillToSW = InchToSW / 25.4            ' SW/mm
-          CorrectScale = DrillScale * 10E-3
+          CorrectScale = DrillScale * 0.01
           NumDigit = 5
           
         Case "TZ"
@@ -339,24 +342,15 @@ Function GenerateSketchFromDrill(Part As IPartDoc _
         Case "ICI"
           ignore = True
           
-        Case Else  ' Ignore remain, read next line
-          If Left(ss, 1) = ";" Then
-            Exit Do
-          End If
-          ignore = True
-      End Select
-
-      If ignore Then
-        FrmStatus.AppendTODO "Ignore Drill Command " + s + " @ line " + CStr(line)
+        Case Else  ' Ignore remain, read next line " + CStr(line)
         FrmStatus.PopTODO
         Exit Do
-      End If
+      End Select
     Loop ' Process Dril commands
 
-    If Not DrillSec Then Exit Do
+    If Not DrillSec Then Exit For
     
-  Loop ' Read next Drill command line
-  Close #inFile
+  Next line ' Read next Drill command line
 
   Set GenerateSketchFromDrill = MinBrd
 
@@ -403,7 +397,7 @@ Sub GenerateSketchFromGerber(Part As IPartDoc _
   Dim idx     As Integer ' Tracking current line offset in Gerber file
   Dim ignore  As Boolean
   
-  Dim s As String
+  Dim wholeFile As String
   Dim x As Double, y As Double
   Dim x1 As Double, y1 As Double
   Dim x2 As Double, y2 As Double
@@ -426,7 +420,7 @@ Sub GenerateSketchFromGerber(Part As IPartDoc _
     
   ' Read Silkscreen Gerber file, and sketch silkscreen
   GerberToSW = InchToSW          ' SW/in
-  CorrectScale = GerbScale / 1E-4
+  CorrectScale = GerbScale / 0.0001
   NumDigit = 6
   Leading = False
   absolute_mode = True
@@ -438,9 +432,13 @@ Sub GenerateSketchFromGerber(Part As IPartDoc _
   line = 0
   inFile = FreeFile
   Open GerberFile For Input As #inFile
-  Do While Not EOF(inFile)
+  wholeFile = Input(LOF(inFile), inFile)
+  Close #inFile
+  
+  Dim s
+  For Each s In Split(wholeFile, vbLf)
     Utilities.RelaxForGUI last_time, 0
-    Line Input #inFile, s
+    If Right(s, 1) = vbCr Then s = Left(s, Len(s) - 1)
     s = Trim(s)
     idx = 1
     line = line + 1
@@ -480,7 +478,7 @@ Sub GenerateSketchFromGerber(Part As IPartDoc _
         idx = idx + 1
         Select Case Utilities.GerberNumber(s, StartIdx:=idx)
           Case 2 ' M02 - End of Gerber file
-            Exit Do
+            Exit For
           Case Else
             ignore = True
         End Select
@@ -609,8 +607,7 @@ Sub GenerateSketchFromGerber(Part As IPartDoc _
       FrmStatus.AppendTODO "Ignore Gerber Command " + s + " @ line " + CStr(line)
       FrmStatus.PopTODO
     End If
-  Loop ' Process each line in Gerber file
-  Close #inFile
+  Next s ' Process each line in Gerber file
 
   mySketchMgr.DisplayWhenAdded = True
   mySketchMgr.AddToDB = False
@@ -752,6 +749,7 @@ Sub GenerateVMRL(Part As IPartDoc _
   , Optional genMinMaxBox As Boolean = True _
   , Optional genWireFrame As Boolean = False)
 
+  Dim wholeFile() As String
   Dim inFile As Integer
   Dim st As Stack_String
   Dim points As Stack_Dbl
@@ -768,6 +766,8 @@ Sub GenerateVMRL(Part As IPartDoc _
   
   inFile = FreeFile
   Open FileName For Input As #inFile
+  wholeFile = Split(Input(LOF(inFile), inFile), vbLf)
+  Close #inFile
   
   Set st = New Stack_String
   Set points = New Stack_Dbl
@@ -784,10 +784,14 @@ Sub GenerateVMRL(Part As IPartDoc _
   line = 0
   end_idx = 1
   size = 0
+  line = 0
   Do
     If end_idx > size Then
-      If EOF(inFile) Then Exit Do
-      Line Input #inFile, s
+      If line > UBound(wholeFile) Then Exit Do
+      s = wholeFile(line)
+      line = line + 1
+      If Right(s, 1) = vbCr Then s = Left(s, Len(s) - 1)
+      s = Trim(s)
       size = Len(s)
       start_idx = 1
       end_idx = 1
@@ -923,8 +927,6 @@ Sub GenerateVMRL(Part As IPartDoc _
     Next i
   Loop
   
-  Close #inFile
-
 DONE_LABEL:
   mySketchMgr.DisplayWhenAdded = True
   mySketchMgr.AddToDB = False
@@ -948,8 +950,9 @@ Sub GeneratePCBAssembly(Part As IAssemblyDoc _
   If maxCol < POS_PosXColIdx Then maxCol = POS_PosXColIdx
   If maxCol < POS_RefColIdx Then maxCol = POS_RefColIdx
   
+  Dim wholeFile() As String
   Dim inFile As Integer
-  Dim s As String
+  Dim s
   Dim line As Integer
   Dim row, model, models
   
@@ -1039,13 +1042,15 @@ Sub GeneratePCBAssembly(Part As IAssemblyDoc _
   
   inFile = FreeFile
   Open PosFileName For Input As #inFile
+  wholeFile = Split(Input(LOF(inFile), inFile), vbLf)
+  Close #inFile
   
   mypath = FilePath(BOMFileName)
   line = 0
   start_time = Now
-  Do While Not EOF(inFile)
+  For Each s In wholeFile
     Utilities.RelaxForGUI last_time, 0
-    Line Input #inFile, s
+    If Right(s, 1) = vbCr Then s = Left(s, Len(s) - 1)
     line = line + 1
     If Trim(s) <> "" Then
       row = ReadSpaceSepVecRow(s)
@@ -1262,11 +1267,9 @@ Sub GeneratePCBAssembly(Part As IAssemblyDoc _
         End If
       End If
     End If
-  Loop
+  Next s
   FrmStatus.PopTODO
   
-  Close #inFile
-
   ' Add the component to the assembly.
   FrmStatus.setMaxValue compNames.Count
   FrmStatus.setRemaindValue compNames.Count
@@ -1317,15 +1320,15 @@ Sub main()
     DrillScale = 1#  ' unit/in
     GerbScale = 1#   ' unit/in
     
-    POSScale = InchToSW / 1000#     ' unit/in
-    AngScale = 1                    ' unit/degree
+    POSScale = InchToSW  ' unit/in
+    AngScale = -1        ' unit/degree
     POS_RefColIdx = 0
     POS_PosXColIdx = 4
     POS_PosYColIdx = 5
     POS_RotColIdx = 6
     POS_SideColIdx = 7
     
-    VRMLScale = InchToSW  ' unit/in
+    VRMLScale = InchToSW / 10#  ' unit/in
     PCB_Thickness = 0.063 ' in
     
     BOMScale = InchToSW   ' unit/in

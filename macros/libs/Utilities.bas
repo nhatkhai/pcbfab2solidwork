@@ -168,6 +168,7 @@ End Function
 
 
 Function Read3DBOMFile(FileName As String) As Object
+  Dim wholeFile() As String
   Dim dict
   Dim s, mypath, ref
   Dim cols(), refs
@@ -192,11 +193,14 @@ Function Read3DBOMFile(FileName As String) As Object
   
   inFile = FreeFile
   Open FileName For Input As #inFile
+  wholeFile = Split(Input(LOF(inFile), inFile), vbLf)
+  Close #inFile
+
   mypath = FilePath(FileName)
   line = 0
-  Do While Not EOF(inFile)
-    Line Input #inFile, s
-    line = line + 1
+  For line = 0 to UBound(wholeFile)
+    s = wholeFile(line)
+    If Right(s, 1) = vbCr Then s = Left(s, Len(s) - 1)
     
     cols = ReadCSVRow(s)
     If UBound(cols) >= maxCol Then
@@ -226,8 +230,7 @@ Function Read3DBOMFile(FileName As String) As Object
         End If
       Next
     End If
-  Loop
-  Close #inFile
+  Next line
   
   Set Read3DBOMFile = dict
 End Function
