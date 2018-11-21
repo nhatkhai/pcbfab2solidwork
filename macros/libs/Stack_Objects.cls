@@ -16,7 +16,7 @@ Attribute VB_Exposed = False
 Option Explicit
 
 Private lngTop As Long
-Private myStack() As Object
+Private myStack() As Variant
 
 ' to manage increase of array
 Private k As Integer

@@ -20,6 +20,8 @@ Attribute VB_Exposed = False
 
 
 
+
+
 '
 '    PCBFab2Solidwork
 '    Copyright (C) 2018  NhatKhai L. Nguyen
@@ -64,29 +66,26 @@ End Sub
 Private Sub cbScaleStyle_Change()
   Select Case LCase(cbScaleStyle.Text)
     Case "kicad"
-      txtDrillScale.Text = "1"    ' 2.4 Format (unit/in)
-      txtGerbScale.Text = "1"      ' 2.4 Format (unit/in)
-      txtPosScale.Text = "1"            ' unit/in
-      txtPosAngleScale.Text = "-1" ' unit/degree
-      txtWRLScale.Text = "10"           ' unit/in
-      txtPCBThickness = "63" ' mil
-      txtMinHole = "10" ' mil
-      txtPCBOfs = "0  0"
-      txtPosColIdxs.Text = "0  2  3  4  5"
-      txt3DColIdxs.Text = "0  2  5  8  11"
+      txtDrillScale = "1"    ' 2.4 Format (unit/in)
+      txtGerbScale = "1"     ' 2.4 Format (unit/in)
+      txtPosScale = "1"            ' unit/in
+      txtPosAngleScale = "-1" ' unit/degree
+      txtPosColIdxs = "0  2  3  4  5"
+      txt3DColIdxs = "0  2  5  8  11"
 
     Case "cad"
-      txtDrillScale.Text = "10"    ' 2.4 Format (unit/in)
-      txtGerbScale.Text = "1"      ' 2.4 Format (unit/in)
-      txtPosScale.Text = "1000"         ' unit/in
-      txtPosAngleScale.Text = "1"  ' unit/degree
-      txtWRLScale.Text = "1"            ' unit/in
-      txtPCBThickness = "63" ' mil
-      txtMinHole = "10" ' mil
-      txtPCBOfs = "0  0"
-      txtPosColIdxs.Text = "0  4  5  6  7"
-      txt3DColIdxs.Text = "0  2  5  8  11"
+      txtDrillScale = "10"    ' 2.4 Format (unit/in)
+      txtGerbScale = "1"      ' 2.4 Format (unit/in)
+      txtPosScale = "1000"         ' unit/in
+      txtPosAngleScale = "1"  ' unit/degree
+      txtPosColIdxs = "0  4  5  6  7"
+      txt3DColIdxs = "0  2  5  8  11"
   End Select
+  
+  If Len(txtWRLScale) = 0 Then txtWRLScale = "10" ' unit/in
+  If Len(txtPCBOfs) = 0 Then txtPCBOfs = "0  0"
+  If Len(txtPCBThickness) = 0 Then txtPCBThickness = "63"  ' mil
+  If Len(txtMinHole) = 0 Then txtMinHole = "10" ' mil
 End Sub
 
 Private Sub PartVisible_Click()
@@ -272,9 +271,8 @@ End Sub
 
 
 Private Sub txtPCBThickness_Exit(ByVal Cancel As MSForms.ReturnBoolean)
-  Me.txtPCBThickness = CStr(Gerber_To_3D.PCB_Thickness * 1000#)
+  txtPCBThickness = CStr(Gerber_To_3D.PCB_Thickness * 1000#)
 End Sub
-
 
 Private Sub txtPosAngleScale_Change()
   On Error Resume Next

@@ -1188,20 +1188,24 @@ Sub GeneratePCBAssembly(Part As IAssemblyDoc _
                     Set importData = swApp.GetImportFileData(Na + ext)
                     importData.MapConfigurationData = True
                     Set myPart = swApp.LoadFile4(Na + ext, "r", importData, longstatus)
-                    If (Scale_x = Scale_y) And (Scale_x = Scale_z) Then
-                      If Abs(Scale_x - 1) > 0.001 Then
-                        myPart.FeatureManager.InsertScale swScaleAboutOrigin, True, Scale_x, Scale_y, Scale_z
-                      End If
+                    If myPart Is Nothing Then
+                        FrmStatus.AppendTODO "ERROR - Cannot import " + Na + ext
+                        FrmStatus.PopTODO
                     Else
-                      myPart.FeatureManager.InsertScale swScaleAboutOrigin, False, Scale_x, Scale_y, Scale_z
+                      If (Scale_x = Scale_y) And (Scale_x = Scale_z) Then
+                        If Abs(Scale_x - 1) > 0.001 Then
+                          myPart.FeatureManager.InsertScale swScaleAboutOrigin, True, Scale_x, Scale_y, Scale_z
+                        End If
+                      Else
+                        myPart.FeatureManager.InsertScale swScaleAboutOrigin, False, Scale_x, Scale_y, Scale_z
+                      End If
+                      myPart.Visible = PCBCfgForm.PartVisible
+                      myPart.ViewZoomtofit2
+                      Na = Na + tempStr2 + ".sldprt"
+                      myPart.SaveAs Na
+                      swApp.CloseDoc GetFileName(myPart.GetPathName())
+                      Set myPart = Nothing
                     End If
-                    myPart.Visible = PCBCfgForm.PartVisible
-                    myPart.ViewZoomtofit2
-                    Na = Na + tempStr2 + ".sldprt"
-                    myPart.SaveAs Na
-                    swApp.CloseDoc GetFileName(myPart.GetPathName())
-                    Set myPart = Nothing
-                    
                     FrmStatus.PopTODO
               End Select
                     
