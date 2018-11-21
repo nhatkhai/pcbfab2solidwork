@@ -14,7 +14,7 @@ Public Const SearchPaths = "c:\Program Files\KiCad\share\modules\packages3d"
 Function StrJoin(a() As String _
   , fromIdx As Integer _
   , toIdx As Integer _
-  , Optional joinStr As String = " " ) As String
+  , Optional joinStr As String = " ") As String
 
   Dim i As Integer
   Dim s As String
@@ -37,13 +37,13 @@ Function FindFile(Path As String, FileName As String _
   
   If (Right(Path, 1) <> "\") Then Path = Path + "\"
   
-  p = Dir$(Path + tmpStr)
+  p = dir$(Path + tmpStr)
   If (p <> "") Then
     FindFile = Path + FileName
     Exit Function
   End If
   
-  p = Dir$(tmpStr)
+  p = dir$(tmpStr)
   If (p <> "") Then
     FindFile = FileName
     Exit Function
@@ -51,7 +51,7 @@ Function FindFile(Path As String, FileName As String _
 
   For Each rs In Split(SearchPaths, ";")
     If (Right(rs, 1) <> "\") Then rs = rs + "\"
-    p = Dir$(rs + tmpStr)
+    p = dir$(rs + tmpStr)
     If p <> "" Then
       FindFile = rs + FileName
       Exit Function
@@ -233,7 +233,7 @@ Function Read3DBOMFile(FileName As String) As Object
 End Function
 
 
-' This help script run faster by slow down Solidwork update rate while 
+' This help script run faster by slow down Solidwork update rate while
 ' generating many Solidwork Objects.
 Function RelaxForGUI(ByRef last_time As Long, ByVal interval As Long) As Boolean
   If Timer >= last_time Then
@@ -256,15 +256,15 @@ End Function
 '   * GerberNumber( "X123Y-100D02*", 25.4
 '                 , 1e-4, 6  <-- 2.4 FS Format yeild 1e-4, 6
 '                                4.6 FS Format yeild 1e-6, 10
-'                                2.5 FS Format yeild 1e-6, 7 
+'                                2.5 FS Format yeild 1e-6, 7
 '                 , False
 '                 , Idx) -> 0.0123*25.4, and Idx change from 2 to 5
-' 
+'
 ' @param strNum [in] a string containt gerber number that need to be
 '           extracted
 ' @param UnitScale [in] a convertion factor for convert extracted number
 '           into usable unit. Default is 1
-' @param CorrectScale [in] Specify adjust scale. This value is 
+' @param CorrectScale [in] Specify adjust scale. This value is
 '           1/10^(#DECIMAL_DIGIT). Where #DECIMAL_DIGIT is
 '           specified in Gerber FS command. Default is 1
 ' @param NumDigit [in] Specify maximum total number of digit can be.
@@ -311,8 +311,8 @@ Function GerberNumber(ByVal strNum As String _
   If (i = StartIdx) Then
     num = 0
   Else
-    If Leading And (Not Dot) Then
-      num = CDbl(Left( Mid(strNum, StartIdx, i - StartIdx) _
+    If Leading And (Not dot) Then
+      num = CDbl(Left(Mid(strNum, StartIdx, i - StartIdx) _
                      + String(NumDigit, "0") _
                      , NumDigit))
     Else
@@ -390,7 +390,7 @@ End Function
 
 ' Function return angle in radiant between [-pi;pi] with given x and y
 ' coordinate, using following scheme:
-' 
+'
 ' x<0, y>0:  angle = 180+atn(y/x)  =  90-atn(x/y)
 ' x>0, y>0:  angle =     atn(y/x)  =  90-atn(x/y)
 ' x>0, y<0:  angle =     atn(y/x)  = -90-atn(x/y)
@@ -469,6 +469,20 @@ Sub Rotate2D(ByRef x As Double, ByRef y As Double, ByVal angle As Double, ByVal 
 End Sub
 
 
+' Figure out which one of the 4 center point will produce a arc <=90
+' degree. Given start point (x1,y1), end point (x2, y2) and the absolute
+' offset (dcx, dcy) from the center point to start point.
+'
+'                        xxxxx*** (x1, y1)
+'      ( x1,y1 )    xxxxx  ***
+'     +(dcx,dcy)xxxx    ***
+'                    ***
+'                 ***
+'              ***
+' (x2,y2)   ***
+'
+' @return dcx, dcy will be adjusted with correct sign for produce small arc
+'
 Function SingleQuadrantArcCenter(ByVal x1 As Double, ByVal y1 As Double, _
   ByRef dcx As Double, ByRef dcy As Double, _
   ByVal x2 As Double, ByVal y2 As Double, _
@@ -484,15 +498,15 @@ Function SingleQuadrantArcCenter(ByVal x1 As Double, ByVal y1 As Double, _
   ac(3) = normalizeAngle(angle(-dcx, -dcy) - aend)
   ac(2) = normalizeAngle(angle(dcx, -dcy) - aend)
   
-  If Not clockwise Then
+  If clockwise Then
     For i = 0 To 3
-      If ac(i) >= PI / 4 And ac(i) < PI / 2 Then
+      If ac(i) >= PI / 4 Then
         Exit For
       End If
     Next i
   Else
     For i = 0 To 3
-      If ac(i) <= -PI / 4 And ac(i) > -PI / 2 Then
+      If ac(i) <= -PI / 4 Then
         Exit For
       End If
     Next i
@@ -500,6 +514,45 @@ Function SingleQuadrantArcCenter(ByVal x1 As Double, ByVal y1 As Double, _
     
   If i = 1 Or i = 3 Then dcx = -dcx
   If i = 2 Or i = 3 Then dcy = -dcy
+End Function
+
+
+' Figure out which arc direction will generate the smallest arc which will
+' be the solidworks "1" direction will be. Then compensate it with the true
+' request direction of the are read from gerber file.
+'
+' Given a start point (x1, y1), end point (x2, y2) and the center point
+' offset from start point (dcx, dcy). Calculate the angle between two
+' vectors from start points, and use that to figure out smallest arc
+' direction should be.
+'
+'                        xxxxx*** (x1, y1)
+'      ( x1,y1 )    xxxxx  ***
+'     +(dcx,dcy)xxxx    ***
+'                    ***
+'                 ***
+'              ***
+' (x2,y2)   ***
+'
+' @return +1, or -1 direction for CreateArc. Where +1 for small size arc,
+' -1 for larger size arc
+Function MultiQuadranArcDirection(ByVal x1 As Double, ByVal y1 As Double, _
+  ByVal dcx As Double, ByVal dcy As Double, _
+  ByVal x2 As Double, ByVal y2 As Double, _
+  clockwise As Boolean)
+
+  Dim aend As Double
+  Dim dir As Integer
+
+  aend = normalizeAngle(angle(x2 - x1, y2 - y1) - angle(dcx, dcy))
+
+  If aend > 0 Then
+    dir = -1 ' Small arc is clockwise
+  Else
+    dir = 1  ' Small are is counter-clockwise
+  End If
+  If clockwise Then dir = -dir
+  MultiQuadranArcDirection = dir
 End Function
 
 
