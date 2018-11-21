@@ -22,6 +22,8 @@ Attribute VB_Exposed = False
 
 
 
+
+
 '
 '    PCBFab2Solidwork
 '    Copyright (C) 2018  NhatKhai L. Nguyen
@@ -63,6 +65,11 @@ Private Sub BtnPosFile_Click()
     Me.PosFileName, "Position Files|*.csv;*.pos;*.xyr|All|*.*|", 0, "", "")
 End Sub
 
+
+Private Sub cbScaleStyle_Enter()
+  LabelDescription = cbScaleStyle.ControlTipText
+End Sub
+
 Private Sub cbScaleStyle_Change()
   Select Case LCase(cbScaleStyle.Text)
     Case "kicad"
@@ -87,6 +94,11 @@ Private Sub cbScaleStyle_Change()
   If Len(txtPCBThickness) = 0 Then txtPCBThickness = "63"  ' mil
   If Len(txtMinHole) = 0 Then txtMinHole = "10" ' mil
 End Sub
+
+Private Sub cbScaleStyle_Exit(ByVal Cancel As MSForms.ReturnBoolean)
+  LabelDescription = ""
+End Sub
+
 
 Private Sub PartVisible_Click()
   If Not currentPart Is Nothing Then
@@ -231,16 +243,24 @@ OutLineFileNotExist:
 End Sub
 
 
+Private Sub txtDrillScale_Enter()
+  LabelDescription = txtDrillScale.ControlTipText
+End Sub
+
 Private Sub txtDrillScale_Change()
   On Error Resume Next
   Gerber_To_3D.DrillScale = 1# / CDbl(Me.txtDrillScale)
 End Sub
 
-
 Private Sub txtDrillScale_Exit(ByVal Cancel As MSForms.ReturnBoolean)
+  LabelDescription = ""
   Me.txtDrillScale = CStr(1# / Gerber_To_3D.DrillScale)
 End Sub
 
+
+Private Sub txtGerbScale_Enter()
+  LabelDescription = txtGerbScale.ControlTipText
+End Sub
 
 Private Sub txtGerbScale_Change()
   On Error Resume Next
@@ -264,6 +284,10 @@ Private Sub txtMinHole_Exit(ByVal Cancel As MSForms.ReturnBoolean)
 End Sub
 
 
+Private Sub txtPCBThickness_Enter()
+  LabelDescription = txtPCBThickness.ControlTipText
+End Sub
+
 Private Sub txtPCBThickness_Change()
   On Error Resume Next
   Gerber_To_3D.PCB_Thickness = CDbl(Me.txtPCBThickness) / 1000#
@@ -274,38 +298,52 @@ Private Sub txtPCBThickness_Exit(ByVal Cancel As MSForms.ReturnBoolean)
   txtPCBThickness = CStr(Gerber_To_3D.PCB_Thickness * 1000#)
 End Sub
 
+
+Private Sub txtPosAngleScale_Enter()
+  LabelDescription = txtPosAngleScale.ControlTipText
+End Sub
+
 Private Sub txtPosAngleScale_Change()
   On Error Resume Next
   Gerber_To_3D.AngScale = CDbl(Me.txtPosAngleScale)
 End Sub
-
 
 Private Sub txtPosAngleScale_Exit(ByVal Cancel As MSForms.ReturnBoolean)
   Me.txtPosAngleScale = CStr(Gerber_To_3D.AngScale)
 End Sub
 
 
+Private Sub txtPosScale_Enter()
+  LabelDescription = txtPosScale.ControlTipText
+End Sub
+
 Private Sub txtPosScale_Change()
   On Error Resume Next
   Gerber_To_3D.POSScale = Gerber_To_3D.InchToSW / CDbl(Me.txtPosScale)
 End Sub
-
 
 Private Sub txtPosScale_Exit(ByVal Cancel As MSForms.ReturnBoolean)
   Me.txtPosScale = CStr(Gerber_To_3D.InchToSW / Gerber_To_3D.POSScale)
 End Sub
 
 
+Private Sub txtWRLScale_Enter()
+  LabelDescription = txtWRLScale.ControlTipText
+End Sub
+
 Private Sub txtWRLScale_Change()
   On Error Resume Next
   Gerber_To_3D.VRMLScale = Gerber_To_3D.InchToSW / CDbl(Me.txtWRLScale)
 End Sub
 
-
 Private Sub txtWRLScale_Exit(ByVal Cancel As MSForms.ReturnBoolean)
   Me.txtWRLScale = CStr(Gerber_To_3D.InchToSW / Gerber_To_3D.VRMLScale)
 End Sub
 
+
+Private Sub txtPCBOfs_Enter()
+  LabelDescription = txtPCBOfs.ControlTipText
+End Sub
 
 Private Sub txtPCBOfs_Change()
   On Error Resume Next
@@ -315,12 +353,15 @@ Private Sub txtPCBOfs_Change()
   If UBound(vals) >= 1 Then Gerber_To_3D.PCB_YOffset = CDbl(vals(1))
 End Sub
 
-
 Private Sub txtPCBOfs_Exit(ByVal Cancel As MSForms.ReturnBoolean)
   Me.txtPCBOfs = CStr(Gerber_To_3D.PCB_XOffset) + "  " _
                + CStr(Gerber_To_3D.PCB_YOffset)
 End Sub
 
+
+Private Sub txtPosColIdxs_Enter()
+  LabelDescription = txtPosColIdxs.ControlTipText
+End Sub
 
 Private Sub txtPosColIdxs_Change()
   On Error Resume Next
@@ -333,7 +374,6 @@ Private Sub txtPosColIdxs_Change()
   If UBound(vals) >= 4 Then Gerber_To_3D.POS_SideColIdx = CInt(vals(4))
 End Sub
 
-
 Private Sub txtPosColIdxs_Exit(ByVal Cancel As MSForms.ReturnBoolean)
   Me.txtPosColIdxs = CStr(Gerber_To_3D.POS_RefColIdx) + "  " _
                    + CStr(Gerber_To_3D.POS_PosXColIdx) + "  " _
@@ -342,6 +382,10 @@ Private Sub txtPosColIdxs_Exit(ByVal Cancel As MSForms.ReturnBoolean)
                    + CStr(Gerber_To_3D.POS_SideColIdx)
 End Sub
 
+
+Private Sub txt3DColIdxs_Enter()
+  LabelDescription = txt3DColIdxs.ControlTipText
+End Sub
 
 Private Sub txt3DColIdxs_Change()
   On Error Resume Next
