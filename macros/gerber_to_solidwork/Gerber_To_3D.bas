@@ -23,6 +23,10 @@ Public VRMLScale As Double      ' =25.4/1000 Convert to meter - (m/in)
 Public BOMScale As Double       ' =25.4/1000 Convert to meter - (m/in)
 
 Public PCB_Thickness As Double  ' =0.063 (inches)
+Public PCB_XOffset As Double ' inches (Offset from the origin of Position file)
+Public PCB_YOffset As Double ' inches
+
+Public Drill_MinHole As Double ' inches (Help reduce complexity of the board)
 
 Public POS_RefColIdx As Integer   '= 0
 Public POS_PosXColIdx As Integer  '= 4
@@ -35,7 +39,6 @@ Public BOM_ScaleColIdx      As Integer '= 9
 Public BOM_OfsColIdx        As Integer '= 12
 Public BOM_RotColIdx        As Integer '= 15
 Public BOM_ModleFileColIdx  As Integer '= 18
-
 
 Const silkTopLayer = "TOP"
 Const silkBottomLayer = "BOTTOM"
@@ -1022,8 +1025,8 @@ Sub GeneratePCBAssembly(Part As IAssemblyDoc _
   compXforms.Push 1#
   
   ' Add a translation vector to the transformation matrix
-  compXforms.Push 0#
-  compXforms.Push 0#
+  compXforms.Push -InToMeter * PCB_XOffset
+  compXforms.Push -InToMeter * PCB_YOffset
   compXforms.Push 0#
   
   ' Add a scaling factor to the transform
@@ -1060,8 +1063,8 @@ Sub GeneratePCBAssembly(Part As IAssemblyDoc _
         If refs.Exists(UCase(MOD_ref)) Then
           For Each model In refs(UCase(MOD_ref)).GetArray()
             MOD_angle = CDbl(row(POS_RotColIdx)) * AngScale
-            MOD_x = CDbl(row(POS_PosXColIdx)) * POSScale + 10 * InToMeter
-            MOD_y = CDbl(row(POS_PosYColIdx)) * POSScale + 10 * InToMeter
+            MOD_x = CDbl(row(POS_PosXColIdx)) * POSScale
+            MOD_y = CDbl(row(POS_PosYColIdx)) * POSScale
             MOD_layer = UCase(row(POS_SideColIdx))
             If MOD_layer = "PRIMARY SIDE" Then MOD_layer = silkTopLayer
             If MOD_layer = "SECONDARY SIDE" Then MOD_layer = silkBottomLayer
@@ -1308,42 +1311,6 @@ End Sub
 Sub main()
   Set swApp = Application.SldWorks
 
-  ' Intialize internal and GUI parameters if not initialized
-  If PCBCfgForm.DrillFileName = "" Then
-    PCBCfgForm.DrillFileName = ""
-    PCBCfgForm.OutLineFileName = ""
-    PCBCfgForm.TopSilkFileName = ""
-    PCBCfgForm.BotSilkFileName = ""
-    PCBCfgForm.PosFileName = ""
-    PCBCfgForm.BOMFileName = ""
-    
-    DrillScale = 1#  ' unit/in
-    GerbScale = 1#   ' unit/in
-    
-    POSScale = InchToSW  ' unit/in
-    AngScale = -1        ' unit/degree
-    POS_RefColIdx = 0
-    POS_PosXColIdx = 4
-    POS_PosYColIdx = 5
-    POS_RotColIdx = 6
-    POS_SideColIdx = 7
-    
-    VRMLScale = InchToSW / 10#  ' unit/in
-    PCB_Thickness = 0.063 ' in
-    
-    BOMScale = InchToSW   ' unit/in
-    BOM_RefColIdx = 0
-    BOM_ScaleColIdx = 2
-    BOM_OfsColIdx = 5
-    BOM_RotColIdx = 8
-    BOM_ModleFileColIdx = 11
-    
-    PCBCfgForm.txtDrillScale = CStr(1 / DrillScale)
-    PCBCfgForm.txtGerbScale = CStr(1 / GerbScale)
-    PCBCfgForm.txtPosScale = CStr(InchToSW / POSScale)
-    PCBCfgForm.txtPosAngleScale = CStr(AngScale)
-    PCBCfgForm.txtWRLScale = CStr(InchToSW / VRMLScale)
-    PCBCfgForm.txtPCBThickness = CStr(PCB_Thickness * 1000)
-  End If
+  BOMScale = InchToSW   ' unit/in
   PCBCfgForm.Show
 End Sub

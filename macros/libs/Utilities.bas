@@ -177,12 +177,6 @@ Function Read3DBOMFile(FileName As String) As Object
   Dim inFile, line As Integer
   Dim maxCol
   
-  'Const RefColIdx = 2
-  'Const ScaleColIdx = 9
-  'Const OfsColIdx = 12
-  'Const RotColIdx = 15
-  'Const ModleFileColIdx = 18
-
   maxCol = Gerber_To_3D.BOM_ModleFileColIdx
   If maxCol < Gerber_To_3D.BOM_RotColIdx + 3 Then maxCol = Gerber_To_3D.BOM_RotColIdx + 3
   If maxCol < Gerber_To_3D.BOM_OfsColIdx + 3 Then maxCol = Gerber_To_3D.BOM_OfsColIdx + 3
@@ -198,11 +192,12 @@ Function Read3DBOMFile(FileName As String) As Object
 
   mypath = FilePath(FileName)
   line = 0
-  For line = 0 to UBound(wholeFile)
+  For line = 0 To UBound(wholeFile)
     s = wholeFile(line)
     If Right(s, 1) = vbCr Then s = Left(s, Len(s) - 1)
     
     cols = ReadCSVRow(s)
+    On Error GoTo SkipThisRow
     If UBound(cols) >= maxCol Then
       refs = Split(cols(Gerber_To_3D.BOM_RefColIdx), ",")
       For Each ref In refs
@@ -228,8 +223,9 @@ Function Read3DBOMFile(FileName As String) As Object
             lst.Push info3d
           End If
         End If
-      Next
+      Next ref
     End If
+SkipThisRow:
   Next line
   
   Set Read3DBOMFile = dict

@@ -1,19 +1,23 @@
 VERSION 5.00
 Begin {C62A69F0-16DC-11CE-9E98-00AA00574A4F} PCBCfgForm 
-   Caption         =   "KiCad PCB to Solidwork MACRO"
-   ClientHeight    =   5250
-   ClientLeft      =   45
-   ClientTop       =   435
-   ClientWidth     =   6345
+   Caption         =   "PCB Fab to Solidwork MACRO"
+   ClientHeight    =   5415
+   ClientLeft      =   120
+   ClientTop       =   465
+   ClientWidth     =   6360
    OleObjectBlob   =   "PCBCfgForm.frx":0000
    ShowModal       =   0   'False
-   StartUpPosition =   3  'Windows Default
+   StartUpPosition =   1  'CenterOwner
 End
 Attribute VB_Name = "PCBCfgForm"
 Attribute VB_GlobalNameSpace = False
 Attribute VB_Creatable = False
 Attribute VB_PredeclaredId = True
 Attribute VB_Exposed = False
+
+
+
+
 
 
 '
@@ -58,24 +62,31 @@ Private Sub BtnPosFile_Click()
 End Sub
 
 Private Sub cbScaleStyle_Change()
-  If LCase(cbScaleStyle.Text) = "kicad" Then
-    txtDrillScale.Text = "1" ' 2.4 Format (unit/in)
-    txtGerbScale.Text = "1"  ' 2.4 Format (unit/in)
-    txtPosScale.Text = "1"       ' unit/in
-    txtPosAngleScale.Text = "-1" ' unit/degree
-    txtWRLScale.Text = "10"      ' unit/in
-    Gerber_To_3D.POS_RefColIdx = 0
-    Gerber_To_3D.POS_PosXColIdx = 2
-    Gerber_To_3D.POS_PosYColIdx = 3
-    Gerber_To_3D.POS_RotColIdx = 4
-    Gerber_To_3D.POS_SideColIdx = 5
-  ElseIf LCase(cbScaleStyle.Text) = "pad" Then
-    txtDrillScale.Text = "1" ' 2.4 Format (unit/in)
-    txtGerbScale.Text = "1"  ' 2.4 Format (unit/in)
-    txtPosScale.Text = "1000"    ' unit/in
-    txtPosAngleScale.Text = "1"  ' unit/degree
-    txtWRLScale.Text = "1"       ' unit/in
-  End If
+  Select Case LCase(cbScaleStyle.Text)
+    Case "kicad"
+      txtDrillScale.Text = "1"    ' 2.4 Format (unit/in)
+      txtGerbScale.Text = "1"      ' 2.4 Format (unit/in)
+      txtPosScale.Text = "1"            ' unit/in
+      txtPosAngleScale.Text = "-1" ' unit/degree
+      txtWRLScale.Text = "10"           ' unit/in
+      txtPCBThickness = "63" ' mil
+      txtMinHole = "10" ' mil
+      txtPCBOfs = "0  0"
+      txtPosColIdxs.Text = "0  2  3  4  5"
+      txt3DColIdxs.Text = "0  2  5  8  11"
+
+    Case "cad"
+      txtDrillScale.Text = "10"    ' 2.4 Format (unit/in)
+      txtGerbScale.Text = "1"      ' 2.4 Format (unit/in)
+      txtPosScale.Text = "1000"         ' unit/in
+      txtPosAngleScale.Text = "1"  ' unit/degree
+      txtWRLScale.Text = "1"            ' unit/in
+      txtPCBThickness = "63" ' mil
+      txtMinHole = "10" ' mil
+      txtPCBOfs = "0  0"
+      txtPosColIdxs.Text = "0  4  5  6  7"
+      txt3DColIdxs.Text = "0  2  5  8  11"
+  End Select
 End Sub
 
 Private Sub PartVisible_Click()
@@ -134,6 +145,7 @@ Private Sub run_Click()
   If t2 <= t1 Then
     FrmStatus.PushTODO "Generate PCB Part " + boardFilename + ".sldprt"
   End If
+
   If Me.BOMFileName <> "" And Me.PosFileName <> "" Then
     FrmStatus.PushTODO "Generate Assembly " + boardFilename + ".sldasm"
     doAssembly = True
@@ -146,7 +158,7 @@ Private Sub run_Click()
     Set currentPart = myPart
     If Not (myPart Is Nothing) Then
       GeneratePCB myPart, Me.DrillFileName, Me.OutLineFileName, _
-        minHole:=CDbl(txtMinHole.Text)
+        minHole:=Gerber_To_3D.Drill_MinHole
       
       If Me.TopSilkFileName <> "" Then _
         GenerateSilk myPart, Me.TopSilkFileName _
@@ -184,8 +196,8 @@ Private Sub run_Click()
       If Not (Part Is Nothing) Then
         GeneratePCBAssembly Part, boardFilename, _
           Me.PosFileName, Me.BOMFileName, _
-          Me.overwriteVRML, _
-          Me.genMinMaxBox, _
+          Me.overwriteSLDPRT, _
+          Me.useVRMLFirst, _
           False, _
           Me.RenameComponents
         Part.Visible = True
@@ -219,69 +231,146 @@ OutLineFileNotExist:
   FrmStatus.PushTODO "Done"
 End Sub
 
+
 Private Sub txtDrillScale_Change()
-  Dim n
   On Error Resume Next
-  n = 1 / CDbl(Me.txtDrillScale)
-  Gerber_To_3D.DrillScale = n
-  Me.txtDrillScale = CStr(1 / Gerber_To_3D.DrillScale)
+  Gerber_To_3D.DrillScale = 1# / CDbl(Me.txtDrillScale)
 End Sub
+
+
+Private Sub txtDrillScale_Exit(ByVal Cancel As MSForms.ReturnBoolean)
+  Me.txtDrillScale = CStr(1# / Gerber_To_3D.DrillScale)
+End Sub
+
 
 Private Sub txtGerbScale_Change()
-  Dim n
   On Error Resume Next
-  n = 1 / CDbl(Me.txtGerbScale)
-  Gerber_To_3D.GerbScale = n
-  Me.txtGerbScale = CStr(1 / Gerber_To_3D.GerbScale)
+  Gerber_To_3D.GerbScale = 1# / CDbl(Me.txtGerbScale)
 End Sub
+
+
+Private Sub txtGerbScale_Exit(ByVal Cancel As MSForms.ReturnBoolean)
+  Me.txtGerbScale = CStr(1# / Gerber_To_3D.GerbScale)
+End Sub
+
 
 Private Sub txtMinHole_Change()
-  Dim n
   On Error Resume Next
-  n = 0.01
-  n = CDbl(Me.txtMinHole)
-  Me.txtMinHole = CStr(n)
+  Gerber_To_3D.Drill_MinHole = CDbl(Me.txtMinHole) / 1000#
 End Sub
+
+
+Private Sub txtMinHole_Exit(ByVal Cancel As MSForms.ReturnBoolean)
+  Me.txtMinHole = CStr(Gerber_To_3D.Drill_MinHole * 1000#)
+End Sub
+
 
 Private Sub txtPCBThickness_Change()
-  Dim n
   On Error Resume Next
-  n = CDbl(Me.txtPCBThickness) / 1000
-  Gerber_To_3D.PCB_Thickness = n
-  Me.txtPCBThickness = CStr(Gerber_To_3D.PCB_Thickness * 1000)
+  Gerber_To_3D.PCB_Thickness = CDbl(Me.txtPCBThickness) / 1000#
 End Sub
 
+
+Private Sub txtPCBThickness_Exit(ByVal Cancel As MSForms.ReturnBoolean)
+  Me.txtPCBThickness = CStr(Gerber_To_3D.PCB_Thickness * 1000#)
+End Sub
+
+
 Private Sub txtPosAngleScale_Change()
-  Dim n
   On Error Resume Next
-  n = CDbl(Me.txtPosAngleScale)
-  Gerber_To_3D.AngScale = n
+  Gerber_To_3D.AngScale = CDbl(Me.txtPosAngleScale)
+End Sub
+
+
+Private Sub txtPosAngleScale_Exit(ByVal Cancel As MSForms.ReturnBoolean)
   Me.txtPosAngleScale = CStr(Gerber_To_3D.AngScale)
 End Sub
 
+
 Private Sub txtPosScale_Change()
-  Dim n
   On Error Resume Next
-  n = Gerber_To_3D.InchToSW / CDbl(Me.txtPosScale)
-  Gerber_To_3D.POSScale = n
+  Gerber_To_3D.POSScale = Gerber_To_3D.InchToSW / CDbl(Me.txtPosScale)
+End Sub
+
+
+Private Sub txtPosScale_Exit(ByVal Cancel As MSForms.ReturnBoolean)
   Me.txtPosScale = CStr(Gerber_To_3D.InchToSW / Gerber_To_3D.POSScale)
 End Sub
 
+
 Private Sub txtWRLScale_Change()
-  Dim n
   On Error Resume Next
-  n = Gerber_To_3D.InchToSW / CDbl(Me.txtWRLScale)
-  Gerber_To_3D.VRMLScale = n
+  Gerber_To_3D.VRMLScale = Gerber_To_3D.InchToSW / CDbl(Me.txtWRLScale)
+End Sub
+
+
+Private Sub txtWRLScale_Exit(ByVal Cancel As MSForms.ReturnBoolean)
   Me.txtWRLScale = CStr(Gerber_To_3D.InchToSW / Gerber_To_3D.VRMLScale)
+End Sub
+
+
+Private Sub txtPCBOfs_Change()
+  On Error Resume Next
+  Dim vals
+  vals = ReadSpaceSepVecRow(Me.txtPCBOfs)
+  If UBound(vals) >= 0 Then Gerber_To_3D.PCB_XOffset = CDbl(vals(0))
+  If UBound(vals) >= 1 Then Gerber_To_3D.PCB_YOffset = CDbl(vals(1))
+End Sub
+
+
+Private Sub txtPCBOfs_Exit(ByVal Cancel As MSForms.ReturnBoolean)
+  Me.txtPCBOfs = CStr(Gerber_To_3D.PCB_XOffset) + "  " _
+               + CStr(Gerber_To_3D.PCB_YOffset)
+End Sub
+
+
+Private Sub txtPosColIdxs_Change()
+  On Error Resume Next
+  Dim vals
+  vals = ReadSpaceSepVecRow(Me.txtPosColIdxs)
+  If UBound(vals) >= 0 Then Gerber_To_3D.POS_RefColIdx = CInt(vals(0))
+  If UBound(vals) >= 1 Then Gerber_To_3D.POS_PosXColIdx = CInt(vals(1))
+  If UBound(vals) >= 2 Then Gerber_To_3D.POS_PosYColIdx = CInt(vals(2))
+  If UBound(vals) >= 3 Then Gerber_To_3D.POS_RotColIdx = CInt(vals(3))
+  If UBound(vals) >= 4 Then Gerber_To_3D.POS_SideColIdx = CInt(vals(4))
+End Sub
+
+
+Private Sub txtPosColIdxs_Exit(ByVal Cancel As MSForms.ReturnBoolean)
+  Me.txtPosColIdxs = CStr(Gerber_To_3D.POS_RefColIdx) + "  " _
+                   + CStr(Gerber_To_3D.POS_PosXColIdx) + "  " _
+                   + CStr(Gerber_To_3D.POS_PosYColIdx) + "  " _
+                   + CStr(Gerber_To_3D.POS_RotColIdx) + "  " _
+                   + CStr(Gerber_To_3D.POS_SideColIdx)
+End Sub
+
+
+Private Sub txt3DColIdxs_Change()
+  On Error Resume Next
+  Dim vals
+  vals = ReadSpaceSepVecRow(Me.txt3DColIdxs)
+  If UBound(vals) >= 0 Then Gerber_To_3D.BOM_RefColIdx = CInt(vals(0))
+  If UBound(vals) >= 1 Then Gerber_To_3D.BOM_ScaleColIdx = CInt(vals(1))
+  If UBound(vals) >= 2 Then Gerber_To_3D.BOM_OfsColIdx = CInt(vals(2))
+  If UBound(vals) >= 3 Then Gerber_To_3D.BOM_RotColIdx = CInt(vals(3))
+  If UBound(vals) >= 4 Then Gerber_To_3D.BOM_ModleFileColIdx = CInt(vals(4))
+End Sub
+
+
+Private Sub txt3DColIdxs_Exit(ByVal Cancel As MSForms.ReturnBoolean)
+  Me.txt3DColIdxs = CStr(Gerber_To_3D.BOM_RefColIdx) + "  " _
+                  + CStr(Gerber_To_3D.BOM_ScaleColIdx) + "  " _
+                  + CStr(Gerber_To_3D.BOM_OfsColIdx) + "  " _
+                  + CStr(Gerber_To_3D.BOM_RotColIdx) + "  " _
+                  + CStr(Gerber_To_3D.BOM_ModleFileColIdx)
 End Sub
 
 
 Private Sub UserForm_Initialize()
   Set swApp = Application.SldWorks
-  cbScaleStyle.AddItem ("PAD")
+  cbScaleStyle.AddItem ("CAD")
   cbScaleStyle.AddItem ("KiCad")
   cbScaleStyle.Text = "KiCad"
-  cbScaleStyle_Change
   
   If swApp Is Nothing Then
     err.Raise 1000, "Initialize Error", "Solidword Application not found"
