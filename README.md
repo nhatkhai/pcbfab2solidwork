@@ -39,7 +39,7 @@ only).
   * Now you should able to run macro from Solidwork -> Tools -> Macro ->
     Run menu
 
-  [![Board3_Demo](https://lh3.googleusercontent.com/V9dkqPIxC8hW7GQYbuHd0wicbzYIoY8pIYoWDySfQ3W6YsdtpJUdwBbaUbCK7Ao4qZsc-Mrzu-mxA2WTkntdikaphyxXYHcP5L05Afl80L_lWo7QQzoJmG1EEcNyd4PFFIIuqyBwLg=w693-h365-no)](https://photos.google.com/share/AF1QipOJnU4LnxdJW5tw3skl2mdTUYdrOHJkoUie0l-0heEJKShiYTKaZP1i___YuLuotQ/photo/AF1QipOC6YcpkirWip1UnJZ-cbdiARgo9q_0IzRrqzz3?key=ZVZEYkJaaktmc01KcE9lTUxQNk1vNU8ycG9kVDZn)
+  [![Board3_Demo](https://img.youtube.com/vi/rBIrRvLksYE/0.jpg)](https://youtu.be/rBIrRvLksYE)
 
 # 3D BOM Format
   * It take a CSV file as a table with following header:
