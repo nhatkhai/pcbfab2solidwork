@@ -1,2 +1,5 @@
+*.[bB][aA][sS] text eol=crlf
+*.[fF][rR][mM] text eol=crlf
+
 *.[fF][rR][xX] filter=lfs diff=lfs merge=lfs -text
 *.[sS][lL][dD][pP][rR][tT] filter=lfs diff=lfs merge=lfs -text
